@@ -534,6 +534,10 @@ class Territory {
 
   #placesListHtml(filter) {
     const places = this.places || [];
+    const view = this.#currentView();
+    view.expanded = view.expanded || {};
+    const PAGE = 10;
+    const shown = (theme) => (filter === "all" ? 5 : PAGE) + (view.expanded[theme] || 0);
     const themes = PLACE_THEME_ORDER.filter((t) => places.some((p) => p.theme === t));
     const chips = this.#chips([["all", "Tout"], ...themes.map((t) => [t, PLACE_THEMES[t].group])], filter);
     const sections = (filter === "all" ? themes : [filter]).map((theme) => {
@@ -547,14 +551,19 @@ class Territory {
             <h3 class="territoryListTitle">${esc(PLACE_THEMES[theme].group)} <span class="territoryMuted">(${items.length})</span></h3>
             <button type="button" class="territoryAllBtn" data-action="show-group" data-value="${theme}" aria-label="Voir les lieux sur la carte — ${esc(PLACE_THEMES[theme].group)}">Carte${icon("map", 14)}</button>
           </div>
-          <div class="territoryCarousel territoryCarouselSnap">
-            ${items.slice(0, 30).map((p) => `
-              <button type="button" class="territoryCard territoryBigCard" data-action="open-place" data-id="${esc(p.id)}" aria-label="${esc(p.name)}, ${esc(PLACE_THEMES[p.theme].label)}. Ouvrir la fiche">
-                ${img(this.#placeImage(p, 18), "territoryBigImg", this.#placeFallback(p, 18))}
-                <span class="territoryCardTitle">${esc(p.name)}</span>
-                <span class="territoryMuted territorySmall">${esc([p.commune, ""].filter(Boolean).join(""))}${p.commune ? ", " : ""}<span class="territoryWarm">${esc(this.#distanceText(p))}</span></span>
+          <div class="territoryRows">
+            ${items.slice(0, shown(theme)).map((p) => `
+              <button type="button" class="territoryCard territoryRow" data-action="open-place" data-id="${esc(p.id)}" aria-label="${esc(p.name)}, ${esc(PLACE_THEMES[p.theme].label)}. Ouvrir la fiche">
+                ${img(this.#placeImage(p, 17), "territoryRowImg", this.#placeFallback(p, 17))}
+                <span class="territoryRowBody">
+                  <span class="territoryCardTitle">${esc(p.name)}</span>
+                  ${p.category && p.category !== PLACE_THEMES[p.theme].label ? `<span class="territoryMuted territorySmall">${esc(p.category)}</span>` : ""}
+                  <span class="territoryMuted territorySmall">${p.commune ? `${esc(p.commune)}, ` : ""}<span class="territoryWarm">${esc(this.#distanceText(p))}</span></span>
+                </span>
+                <span class="territoryRowArrow" aria-hidden="true">${icon("chevronRight", 18)}</span>
               </button>`).join("")}
           </div>
+          ${items.length > shown(theme) ? `<button type="button" class="territoryMoreBtn" data-action="more" data-value="${theme}">Afficher ${Math.min(PAGE, items.length - shown(theme))} lieux de plus (${items.length - shown(theme)} restants)</button>` : ""}
         </section>`;
     }).join("");
     return `
@@ -855,6 +864,12 @@ class Territory {
       break;
     case "filter":
       view.filter = el.dataset.value;
+      view.expanded = {};
+      this.#render();
+      break;
+    case "more":
+      view.expanded = view.expanded || {};
+      view.expanded[el.dataset.value] = (view.expanded[el.dataset.value] || 0) + 10;
       this.#render();
       break;
     case "open-place":
