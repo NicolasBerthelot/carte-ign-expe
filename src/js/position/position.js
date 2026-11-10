@@ -590,7 +590,8 @@ class Position {
     this.coordinates = position.coordinates;
     if (type === "myposition" || type === "context") {
       this.immersivePosition = new ImmersivePosion({lat: this.coordinates.lat, lng: this.coordinates.lon});
-      html = `<div id="immersivePostionHtmlBefore">${this.immersivePosition.computeHtml()}</div>`;
+      // Accès au volet "Mon territoire" (remplace le texte de la position immersive)
+      html = `<div id="immersivePostionHtmlBefore">${this.#territoryTeaserHtml(type)}</div>`;
     }
 
     this.header = position.text;
@@ -718,11 +719,35 @@ class Position {
     if (type === "myposition" || type === "context") {
       this.immersivePosition.addEventListener("dataLoaded", () => {
         if (document.getElementById("immersivePostionHtmlBefore")) {
-          document.getElementById("immersivePostionHtmlBefore").innerHTML = this.immersivePosition.computeHtml();
+          document.getElementById("immersivePostionHtmlBefore").innerHTML = this.#territoryTeaserHtml(type);
         }
       });
       this.immersivePosition.computeAll();
     }
+  }
+
+  /**
+   * Bouton d'accès au volet "Mon territoire"
+   * @param {string} type type de position (myposition ou context)
+   * @returns {string} HTML
+   */
+  #territoryTeaserHtml(type) {
+    const commune = this.immersivePosition?.data?.["LIMITES_ADMINISTRATIVES_EXPRESS.LATEST:commune"]?.[0];
+    let caption = "Commune, lieux remarquables, sorties à proximité…";
+    if (commune) {
+      const population = parseInt(commune[1]);
+      const name = domUtils.stringToHTML(`<span>${commune[0]}</span>`).textContent;
+      caption = Number.isFinite(population) ? `${name} · ${population.toLocaleString("fr-FR")} habitants` : name;
+    }
+    return `
+      <button type="button" class="territoryTeaser" data-lat="${this.coordinates.lat}" data-lng="${this.coordinates.lon}" data-user="${type === "myposition" ? "1" : "0"}">
+        <span class="territoryTeaserIcon" aria-hidden="true"></span>
+        <span class="territoryTeaserText">
+          <span class="territoryTeaserTitle">Découvrir le territoire</span>
+          <span class="territoryTeaserCaption">${caption.replace(/</g, "&lt;")}</span>
+        </span>
+        <span class="territoryTeaserArrow" aria-hidden="true"></span>
+      </button>`;
   }
 
   #setShareContent(latitude, longitude, altitude = "", type = "") {

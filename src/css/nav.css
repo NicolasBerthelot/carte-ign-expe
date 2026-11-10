@@ -178,6 +178,10 @@
   margin-left: auto;
 }
 
+#territory > .nav-picto {
+  background-image: url(../html/img/territory.svg);
+}
+
 #isochrone > .nav-picto {
   background-image: url(../html/img/proximite.svg);
 }

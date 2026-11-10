@@ -10,6 +10,7 @@ import Globals from "./globals";
 import Directions from "./directions/directions";
 import Isochrone from "./isochrone/isochrone";
 import Position from "./position/position";
+import Territory from "./territory/territory";
 import Search from "./search";
 import Compare from "./compare";
 import POI from "./poi";
@@ -73,6 +74,9 @@ const addControls = () => {
       openSignalOSMCbk : () => { Globals.menu.open("signalementOSM", -1, Globals.backButtonState); },
       openLandmarkCbk : () => { Globals.menu.open("landmark", -1, Globals.backButtonState); },
     });
+
+    // volet "Mon territoire"
+    Globals.territory = new Territory(map);
 
     // contrôle Recherche
     Globals.search = new Search(map, {

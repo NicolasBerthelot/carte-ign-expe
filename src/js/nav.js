@@ -65,6 +65,21 @@ class MenuNavigation {
           this.open("position%ousuisje");
         });
     });
+    // "Mon territoire"
+    document.getElementById("territory").addEventListener("click", async () => {
+      try {
+        const position = await Location.getLocation();
+        Globals.territory.open({
+          lat: position.coordinates.lat,
+          lng: position.coordinates.lon,
+          isUserPosition: true,
+        });
+      } catch (err) {
+        console.warn("[territoire] position indisponible :", err);
+        const center = Globals.map.getCenter();
+        Globals.territory.open({ lat: center.lat, lng: center.lng });
+      }
+    });
     // "A proximité"
     document.getElementById("isochrone").addEventListener("click", () => {
       this.open("isochrone");
@@ -369,6 +384,18 @@ class MenuNavigation {
       DOM.$fullScreenBtn.classList.remove("d-none");
       DOM.$backTopLeftBtn.classList.remove("d-none");
       Globals.currentScrollIndex = 2;
+      break;
+    case "territory":
+      if (previousBackState.split("-")[0].split("%")[0] !== "territory") {
+        Globals.setBackButtonState("territory-" + previousBackState, false);
+      }
+      DOM.$search.classList.add("d-none");
+      DOM.$filterPoiBtn.classList.add("d-none");
+      DOM.$backTopLeftBtn.classList.remove("d-none");
+      Globals.currentScrollIndex = 2;
+      if (window.matchMedia("screen and (min-aspect-ratio: 1/1) and (min-width:400px)").matches) {
+        Globals.currentScrollIndex = 1;
+      }
       break;
     case "isochrone":
       // FIXME mettre en place une méthode sur la classe Search
@@ -712,6 +739,12 @@ class MenuNavigation {
       DOM.$filterPoiBtn.classList.remove("higher");
       DOM.$backTopLeftBtn.classList.add("d-none");
       Globals.mapInteractivity.clear();
+      break;
+    case "territory":
+      DOM.$search.classList.remove("d-none");
+      DOM.$filterPoiBtn.classList.remove("d-none");
+      DOM.$backTopLeftBtn.classList.add("d-none");
+      Globals.territory.clearMap();
       break;
     case "isochrone":
       // FIXME mettre en place une méthode sur la classe Searchs

@@ -74,6 +74,7 @@ const $directionsWindow = document.getElementById("directionsWindow");
 const $directionsResultsWindow = document.getElementById("directionsResultsWindow");
 const $isochroneWindow = document.getElementById("isochroneWindow");
 const $positionWindow = document.getElementById("positionWindow");
+const $territoryWindow = document.getElementById("territoryWindow");
 const $myaccountWindow = document.getElementById("myaccountWindow");
 const $poiWindow = document.getElementById("poiWindow");
 const $routeDrawWindow = document.getElementById("routeDrawWindow");
@@ -113,6 +114,7 @@ export default {
   $directionsResultsWindow,
   $isochroneWindow,
   $positionWindow,
+  $territoryWindow,
   $sideBySideBtn,
   $compareMode,
   $sideBySideLeftLayer,

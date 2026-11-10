@@ -1,0 +1,871 @@
+/***********************************
+ * Volet "Mon territoire"
+ * D'après la maquette Lovable « Cartes IGN — Prototype iPhone » (volet Territory, V2),
+ * avec la palette et les polices de l'appli.
+ ***********************************/
+
+#territoryWindow {
+  --territory-card: #fff;
+  --territory-raised: var(--grey-2);
+  --territory-text: var(--black);
+  --territory-muted: var(--darkish-grey);
+  --territory-accent: var(--dark-green);
+  --territory-btn: var(--black);
+  --territory-warm: var(--dark-orange);
+  color: var(--territory-text);
+  font-family: "Open Sans";
+  padding: 0 0 24px;
+  text-align: left;
+}
+
+#territoryWindow *,
+#territoryWindow *::before,
+#territoryWindow *::after {
+  box-sizing: border-box;
+}
+
+#territoryWindow button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+#territoryWindow button:focus-visible,
+#territoryWindow a:focus-visible {
+  outline: 2px solid var(--territory-accent);
+  outline-offset: 2px;
+}
+
+.territoryIcon {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.territoryAccent {
+  color: var(--territory-accent);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.territoryMuted {
+  color: var(--territory-muted);
+}
+
+.territorySmall {
+  font-size: 12px;
+}
+
+.territoryWarm {
+  color: var(--territory-warm);
+  font-family: "Open Sans Semibold";
+}
+
+.territoryEmpty {
+  font-size: 13px;
+  margin: 4px 4px 0;
+}
+
+.territoryText,
+.territoryParagraph {
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+}
+
+.territoryParagraph {
+  font-size: 14px;
+  white-space: pre-line;
+}
+
+.territoryFolded {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.territoryLink {
+  color: var(--territory-accent);
+  font-family: "Open Sans Semibold";
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+#territoryWindow button.territoryLink {
+  color: var(--territory-accent);
+  margin-top: 4px;
+}
+
+/* En-tête */
+.territoryHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0 48px 0 4px;
+}
+
+.territoryHeaderPin {
+  margin-top: 2px;
+}
+
+.territoryTitle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: "Fira Sans Bold";
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.territoryWeather {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Open Sans Semibold";
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.territorySun {
+  color: var(--orange);
+}
+
+.territorySubtitle {
+  font-size: 13px;
+  margin: 4px 4px 0;
+}
+
+/* Titres de sections */
+.territorySectionHeader {
+  margin: 28px 4px 12px;
+}
+
+.territorySectionTitleRow,
+.territorySectionSubtitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.territorySectionSubtitleRow {
+  margin-top: 2px;
+}
+
+.territorySectionSubtitleRow p {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+}
+
+.territorySectionTitle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: "Fira Sans Bold";
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+#territoryWindow .territoryAllBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--territory-btn);
+  color: #fff;
+  font-family: "Open Sans Semibold";
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* Carrousels et cartes */
+.territoryCarousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.territoryCarousel::-webkit-scrollbar {
+  display: none;
+}
+
+.territoryCarouselSnap {
+  scroll-snap-type: x mandatory;
+}
+
+.territoryCarouselSnap > * {
+  scroll-snap-align: start;
+}
+
+#territoryWindow .territoryCard {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: var(--territory-card);
+  border: 1px solid var(--light-grey);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(9, 22, 37, 0.04);
+  overflow: hidden;
+}
+
+#territoryWindow button.territoryCard:active {
+  transform: scale(0.99);
+}
+
+.territorySkeleton {
+  height: 150px;
+  background: linear-gradient(90deg, var(--territory-card) 25%, var(--light-grey) 50%, var(--territory-card) 75%) !important;
+  background-size: 200% 100% !important;
+  animation: territoryShimmer 1.4s infinite;
+}
+
+@keyframes territoryShimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.territoryFactCard {
+  width: 150px;
+  padding: 14px;
+  gap: 4px;
+}
+
+.territoryFactNumber {
+  margin-top: 8px;
+  font-family: "Fira Sans Bold";
+  font-size: 19px;
+  line-height: 1;
+}
+
+.territoryFactTitle {
+  font-family: "Fira Sans Semibold";
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.territoryTextCard {
+  width: 220px;
+  padding: 14px;
+}
+
+.territoryCardTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#territoryWindow .territoryEvolutionCard {
+  width: 236px;
+  padding: 14px;
+}
+
+.territoryKicker {
+  color: var(--territory-accent);
+  font-family: "Open Sans Bold";
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.territoryEvolutionBody {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.territoryEvolutionImg {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.territoryEvolutionText {
+  font-family: "Fira Sans Semibold";
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.territoryRoundBtn {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-top: 10px;
+  border-radius: 50%;
+  background: var(--territory-accent);
+  color: #fff;
+}
+
+.territoryCardTitle {
+  font-family: "Fira Sans Semibold";
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.territoryBadge {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--territory-raised);
+  color: var(--territory-muted);
+  font-family: "Open Sans Bold";
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.territoryBadgeRow {
+  display: flex;
+  gap: 6px;
+}
+
+.territoryDistance {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+#territoryWindow .territoryPlaceCard {
+  width: 220px;
+}
+
+.territoryPlaceBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 12px 12px 8px;
+  gap: 2px;
+}
+
+.territoryPlaceImg {
+  width: 100%;
+  height: 112px;
+  object-fit: cover;
+}
+
+#territoryWindow .territoryOutingCard {
+  width: 240px;
+}
+
+.territoryList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#territoryWindow .territoryList .territoryOutingCard {
+  width: 100%;
+}
+
+.territoryOutingMedia {
+  position: relative;
+  height: 128px;
+  flex-shrink: 0;
+}
+
+.territoryOutingMediaShort {
+  height: 112px;
+}
+
+.territoryOutingImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.territoryDateBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--territory-btn);
+  color: #fff;
+  line-height: 1;
+}
+
+.territoryDateBadgeText {
+  width: auto;
+  height: auto;
+  padding: 6px 8px;
+  font-family: "Open Sans Bold";
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.territoryDateDay {
+  font-family: "Fira Sans Bold";
+  font-size: 18px;
+}
+
+.territoryDateMonth {
+  margin-top: 2px;
+  font-family: "Open Sans Semibold";
+  font-size: 10px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.territoryPills {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+}
+
+.territoryPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--territory-text);
+  font-family: "Open Sans Bold";
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.territoryDetailKicker .territoryPill {
+  background: var(--territory-card);
+}
+
+.territoryDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.territoryDot-easy { background: var(--dark-green); }
+.territoryDot-medium { background: var(--jaune); }
+.territoryDot-hard { background: var(--orange); }
+
+.territoryOutingBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 12px;
+  gap: 2px;
+}
+
+#territoryWindow .territoryNewsCard {
+  width: 100%;
+}
+
+.territoryNewsImg {
+  width: 100%;
+  height: 176px;
+  object-fit: cover;
+}
+
+.territoryNewsBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 14px;
+}
+
+.territoryImgError {
+  visibility: hidden;
+}
+
+.territoryWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 20px 4px 0;
+}
+
+.territorySources {
+  margin: 20px 4px 0;
+}
+
+/* Sous-vues : listes et fiches */
+.territorySubHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  margin: -4px 48px 8px 0;
+}
+
+#territoryWindow .territoryBackBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--territory-btn);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.territorySubTitle {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: "Fira Sans Bold";
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.territoryChips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 -16px 16px;
+  padding: 0 16px 2px;
+  scrollbar-width: none;
+}
+
+.territoryChips::-webkit-scrollbar {
+  display: none;
+}
+
+#territoryWindow .territoryChip {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--territory-card);
+  border: 1px solid var(--grey-2);
+  font-family: "Open Sans Semibold";
+  font-size: 13px;
+}
+
+#territoryWindow .territoryChip.active {
+  background: var(--territory-btn);
+  border-color: var(--territory-btn);
+  color: #fff;
+}
+
+.territoryListSection + .territoryListSection {
+  margin-top: 32px;
+}
+
+.territoryListSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 4px 12px;
+}
+
+.territoryListTitle {
+  margin: 0;
+  font-family: "Fira Sans Semibold";
+  font-size: 16px;
+}
+
+#territoryWindow .territoryBigCard {
+  width: calc(100% - 24px);
+  max-width: 360px;
+  padding: 10px 10px 16px;
+  gap: 4px;
+}
+
+.territoryBigImg {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.territoryDetail {
+  display: flex;
+  flex-direction: column;
+}
+
+.territoryHeroImg {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.territoryDetailTitle {
+  margin: 14px 0 0;
+  font-family: "Fira Sans Bold";
+  font-size: 21px;
+  line-height: 1.2;
+}
+
+.territoryDetailKicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.territoryDetailKicker strong {
+  color: var(--territory-text);
+  font-family: "Open Sans Semibold";
+  font-weight: normal;
+}
+
+.territoryActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+#territoryWindow .territoryActionPill {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--grey-2);
+  background: var(--light-green);
+  color: var(--darker-green);
+  font-family: "Open Sans Semibold";
+  font-size: 14px;
+}
+
+.territoryAddress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--territory-card);
+}
+
+.territoryAddressIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--light-green);
+  color: var(--darker-green);
+  flex-shrink: 0;
+}
+
+.territoryAddressText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.territoryAddressMain {
+  font-family: "Open Sans Semibold";
+  font-size: 14px;
+}
+
+#territoryWindow .territoryCopyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #fff;
+  font-family: "Open Sans Semibold";
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.territoryDetailH3 {
+  margin: 24px 0 0;
+  font-family: "Fira Sans Semibold";
+  font-size: 16px;
+}
+
+.territoryInfoCard {
+  margin-top: 12px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--territory-card);
+}
+
+.territoryInfoRow {
+  padding: 14px 0;
+}
+
+.territoryInfoRow + .territoryInfoRow {
+  border-top: 1px solid var(--grey-2);
+}
+
+.territoryInfoRow p {
+  margin: 0;
+  font-size: 14px;
+  white-space: pre-line;
+}
+
+.territoryInfoLabel {
+  display: block;
+  margin: 0;
+  color: var(--territory-text);
+  font-family: "Open Sans Semibold";
+  font-size: 15px;
+}
+
+.territoryProtection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  color: var(--territory-accent);
+}
+
+.territoryProtection span {
+  color: var(--territory-text);
+  font-size: 13px;
+}
+
+.territoryTimeline {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--territory-card);
+}
+
+.territoryTimeline p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.territoryTimelineDot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border: 2px solid var(--territory-accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.territoryRefs {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--territory-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.territoryRefs strong {
+  color: var(--territory-text);
+  font-family: "Open Sans Semibold";
+  font-weight: normal;
+}
+
+.territoryLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.territoryExtLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--darker-green);
+  font-family: "Open Sans Semibold";
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.territoryStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.territoryStats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--territory-card);
+}
+
+/* Accès depuis le panneau position ("Où suis-je ?", clic long) */
+#positionWindow .territoryTeaser {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--light-green);
+  color: var(--black);
+  text-align: left;
+  cursor: pointer;
+}
+
+.territoryTeaserIcon {
+  width: 32px;
+  height: 32px;
+  background: url(../html/img/territory.svg) center / cover no-repeat;
+  flex-shrink: 0;
+}
+
+.territoryTeaserText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.territoryTeaserTitle {
+  font-family: "Fira Sans Semibold";
+  font-size: 15px;
+}
+
+.territoryTeaserCaption {
+  color: var(--darkish-grey);
+  font-family: "Open Sans";
+  font-size: 12px;
+}
+
+.territoryTeaserArrow {
+  width: 24px;
+  height: 24px;
+  background: url(../html/img/right-arrow.svg) center / cover no-repeat;
+  flex-shrink: 0;
+}

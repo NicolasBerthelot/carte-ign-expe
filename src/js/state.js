@@ -123,6 +123,16 @@ const onBackKeyDown = () => {
     }
     return;
   }
+  if (backState === "territory") {
+    if (Globals.territory.back()) {
+      return;
+    }
+    Globals.menu.close("territory");
+    if (previousState !== "default") {
+      Globals.menu.open(previousState);
+    }
+    return;
+  }
   if (backState === "landmark") {
     Globals.menu.close("landmark");
     if (previousState !== "default") {
