@@ -8,6 +8,8 @@ import {
   htmlToText,
   parseDateRange,
   parseLatLon,
+  photosFromIndex,
+  MEMOIRE_IMAGE_BASE,
   tileImageUrl,
   tilesAround,
   toList,
@@ -104,5 +106,19 @@ describe("territory-data", () => {
     expect(weatherFromCode(63).label).toBe("Pluie");
     expect(weatherFromCode(73).icon).toBe("snow");
     expect(weatherFromCode(95).icon).toBe("storm");
+  });
+
+  it("reads photos from a departmental Mémoire index", () => {
+    const index = {
+      c: ["Chauvel, Albert — 1926 — © Ministère de la Culture (France)", "Audibert, Martine — 1988"],
+      p: { PA00080566: [["AP46L00185/sap04_46l00185_p.jpg", 0], ["MHR93_1/x_p.jpg", 1]] },
+    };
+    expect(photosFromIndex(index, "PA00080566")).toEqual([
+      { url: `${MEMOIRE_IMAGE_BASE}AP46L00185/sap04_46l00185_p.jpg`, credit: "Chauvel, Albert — 1926 — © Ministère de la Culture (France)" },
+      { url: `${MEMOIRE_IMAGE_BASE}MHR93_1/x_p.jpg`, credit: "Audibert, Martine — 1988" },
+    ]);
+    expect(MEMOIRE_IMAGE_BASE).toBe("https://popcorn-prd-perf-assets.s3.gra.io.cloud.ovh.net/memoire/");
+    expect(photosFromIndex(index, "PA99999999")).toEqual([]);
+    expect(photosFromIndex(undefined, "PA00080566")).toEqual([]);
   });
 });

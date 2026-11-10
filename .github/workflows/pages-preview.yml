@@ -43,6 +43,17 @@ jobs:
       - name: Build web app
         run: npm run build
 
+      - name: Add Mérimée photo index
+        run: |
+          mkdir -p www/data/merimee-photos
+          if git ls-remote --exit-code origin merimee-photos > /dev/null; then
+            git fetch -q --depth=1 origin merimee-photos
+            git archive FETCH_HEAD | tar -x -C www/data/merimee-photos
+            echo "Index photos : $(ls www/data/merimee-photos | wc -l) fichiers"
+          else
+            echo "Pas encore d'index photos (workflow « Mérimée photos »)"
+          fi
+
       - name: Add build info
         run: |
           echo "{\"commit\": \"${GITHUB_SHA}\", \"builtAt\": \"$(date -u +%FT%TZ)\"}" > www/build-info.json

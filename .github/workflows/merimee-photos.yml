@@ -1,0 +1,52 @@
+name: Mérimée photos
+# Index hebdomadaire des photos Mémoire rattachées aux notices Mérimée / Palissy,
+# publié sur la branche « merimee-photos » puis intégré au site GitHub Pages
+# (data/merimee-photos/<département>.json) par le workflow Pages preview.
+
+on:
+  schedule:
+    # le jeu de données est mis à jour chaque semaine (week-end)
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+  # reconstruction quand le script d'extraction change
+  push:
+    paths:
+      - 'scripts/merimee-photos/**'
+      - '.github/workflows/merimee-photos.yml'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: merimee-photos
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.repository != 'IGNF/cartes-ign-app'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Build photo index
+        run: python3 scripts/merimee-photos/build_index.py --out out/merimee-photos
+
+      - name: Publish index branch
+        working-directory: out/merimee-photos
+        run: |
+          git init -q -b merimee-photos
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Index des photos Mémoire ($(date -u +%F))"
+          git push -f -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" merimee-photos
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Redeploy GitHub Pages
+        run: gh workflow run pages-preview.yml --ref main -R "${GITHUB_REPOSITORY}"
+        env:
+          GH_TOKEN: ${{ github.token }}

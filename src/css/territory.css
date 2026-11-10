@@ -612,6 +612,19 @@
   border-radius: 8px;
 }
 
+.territoryGallery {
+  margin: 0 -4px;
+}
+
+.territoryGalleryCaption {
+  margin: 6px 0 0;
+}
+
+.territoryProfile {
+  margin-top: 8px;
+  min-height: 120px;
+}
+
 .territoryDetailTitle {
   margin: 14px 0 0;
   font-family: "Fira Sans Bold";

@@ -20,6 +20,8 @@ import Globals from "../globals";
 import DOM from "../dom";
 import ImmersivePosion from "../immersive-position";
 import NewsFeed from "../newsfeed";
+import ImageCarousel from "../utils/image-carousel";
+import ElevationLineControl from "../elevation-line-control/elevation-line-control";
 import { config } from "../utils/config-utils";
 
 import icon from "./territory-icons";
@@ -243,6 +245,9 @@ class Territory {
     }
     this.content.innerHTML = html;
     this.target.classList.toggle("territorySubview", view.name !== "home");
+    if (view.name === "place" || view.name === "outing") {
+      this.#mountDetailWidgets(view.item);
+    }
   }
 
   #distanceText(item) {
@@ -606,11 +611,68 @@ class Territory {
       <a class="territoryExtLink" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">${icon(iconName || "external", 16)}${esc(label)}</a>`).join("")}</div>`;
   }
 
+  /** Photos à afficher en galerie : Mémoire (monuments), médias Geotrek (randonnées) */
+  #photosOf(item) {
+    if (item.photos?.length) {
+      return item.photos;
+    }
+    if (item.kind === "trek" && item.raw?.medias) {
+      try {
+        return JSON.parse(item.raw.medias)
+          .filter((m) => m.url && (!m.type_media || m.type_media === "image"))
+          .slice(0, 8)
+          .map((m) => ({ url: m.url, credit: m.auteur || "" }));
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  #galleryHtml(item) {
+    const photos = this.#photosOf(item);
+    if (photos.length < 2) {
+      return img(photos[0]?.url || this.#placeImage(item, 18), "territoryHeroImg");
+    }
+    const source = item.theme === "monument" ? "base Mémoire, ministère de la Culture" : esc(item.source);
+    return `
+      <div class="territoryGallery" data-gallery></div>
+      <p class="territoryMuted territorySmall territoryGalleryCaption">${photos.length} photos · ${source} · touchez une photo pour l'agrandir et voir son crédit</p>`;
+  }
+
+  #mountDetailWidgets(item) {
+    const gallery = this.content.querySelector("[data-gallery]");
+    if (gallery) {
+      const photos = this.#photosOf(item);
+      new ImageCarousel(gallery, photos.map((p) => p.url), {
+        imageTitle: item.name,
+        imageCredits: photos.map((p) => p.credit),
+        fixedHeight: 200,
+        squareWidth: 180,
+        backButtonState: Globals.backButtonState,
+        shareActivated: false,
+        noMargins: true,
+      });
+    }
+    const profile = this.content.querySelector("[data-profile]");
+    if (profile && item.raw?.geometry) {
+      try {
+        const geometry = JSON.parse(item.raw.geometry);
+        const coords = geometry.type === "MultiLineString" ? geometry.coordinates.flat() : geometry.coordinates;
+        const control = new ElevationLineControl({ target: profile });
+        control.setCoordinates(coords);
+        control.compute(item.raw.longueur).catch((err) => console.warn("[territoire] profil :", err));
+      } catch (err) {
+        console.warn("[territoire] profil :", err);
+      }
+    }
+  }
+
   #detailTop(item, kicker) {
     return `
       ${this.#subHeader(PLACE_THEMES[item.theme]?.group || "Sortie")}
       <div class="territoryDetail">
-        ${img(this.#placeImage(item, 18), "territoryHeroImg")}
+        ${this.#galleryHtml(item)}
         <h2 class="territoryDetailTitle">${esc(item.name)}</h2>
         <p class="territoryMuted territorySmall territoryDetailKicker">${kicker}</p>
         ${this.#actionsHtml(item)}`;
@@ -689,8 +751,9 @@ class Territory {
     default:
       break;
     }
+    const photoCredit = place.photos?.length === 1 ? ` Photo : ${esc(place.photos[0].credit)}.` : "";
     return `${this.#detailTop(place, kicker)}${body}
-      <p class="territoryMuted territorySmall territorySources">Source : ${esc(place.source)}.</p>
+      <p class="territoryMuted territorySmall territorySources">Source : ${esc(place.source)}.${photoCredit}</p>
       </div>`;
   }
 
@@ -717,6 +780,8 @@ class Territory {
           ${Number(r.denivele_positif) > 0 ? `<div><span class="territoryInfoLabel">+${Math.round(r.denivele_positif)} m</span><span class="territoryMuted territorySmall">Dénivelé positif</span></div>` : ""}
           ${Number(r.denivele_negatif) < 0 ? `<div><span class="territoryInfoLabel">${Math.round(r.denivele_negatif)} m</span><span class="territoryMuted territorySmall">Dénivelé négatif</span></div>` : ""}
         </div>
+        <h3 class="territoryDetailH3">Profil altimétrique</h3>
+        <div class="territoryProfile" data-profile></div>
         ${this.#foldable("", htmlToText(r.presentation_courte))}
         ${this.#infoRows([["Lieu de départ", r.depart], ["Lieu d'arrivée", r.arrivee], ["Type d'itinéraire", r.type_itineraire], ["Thèmes", r.themes]])}
         ${this.#foldable("Présentation", htmlToText(r.presentation))}
