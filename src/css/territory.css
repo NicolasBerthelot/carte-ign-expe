@@ -189,9 +189,12 @@
 .territoryCarousel {
   display: flex;
   gap: 12px;
-  overflow-x: auto;
+  overflow-x: scroll;
   overflow-y: hidden;
-  overscroll-behavior-x: contain;
+  /* comme les autres bandeaux défilants de l'appli : la règle globale
+     « * { overscroll-behavior: none } » gêne le défilement au doigt */
+  overscroll-behavior: unset;
+  touch-action: pan-x pan-y;
   scroll-snap-type: x proximity;
   scroll-padding-left: 16px;
   margin: 0 -16px;
@@ -208,14 +211,6 @@
   display: none;
 }
 
-.territoryCarouselSnap {
-  scroll-snap-type: x mandatory;
-}
-
-.territoryCarouselSnap > * {
-  scroll-snap-align: start;
-}
-
 #territoryWindow .territoryCard {
   display: flex;
   flex-direction: column;
@@ -227,8 +222,9 @@
   overflow: hidden;
 }
 
+/* retour visuel sans transformation (une mise à l'échelle au toucher gêne le glissement) */
 #territoryWindow button.territoryCard:active {
-  transform: scale(0.99);
+  background-color: var(--false-white);
 }
 
 .territorySkeleton {
@@ -548,7 +544,9 @@
 .territoryChips {
   display: flex;
   gap: 8px;
-  overflow-x: auto;
+  overflow-x: scroll;
+  overscroll-behavior: unset;
+  touch-action: pan-x pan-y;
   margin: 0 -16px 16px;
   padding: 0 16px 2px;
   scrollbar-width: none;
