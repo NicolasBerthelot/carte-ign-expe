@@ -8,6 +8,11 @@ on:
     # le jeu de données est mis à jour chaque semaine (week-end)
     - cron: '17 5 * * 1'
   workflow_dispatch:
+  # reconstruction quand le script d'extraction change
+  push:
+    paths:
+      - 'scripts/merimee-photos/**'
+      - '.github/workflows/merimee-photos.yml'
 
 permissions:
   contents: write
