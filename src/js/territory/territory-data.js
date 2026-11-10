@@ -32,8 +32,20 @@ const RESOURCES = {
 
 /** Index des photos Mémoire par département (workflow « Mérimée photos », publié avec GitHub Pages) */
 const PHOTO_INDEX_URL = "https://nicolasberthelot.github.io/carte-ign-expe/data/merimee-photos";
-/** Stockage public des images POP / Mémoire */
-export const MEMOIRE_IMAGE_BASE = "https://popcorn-prd-perf-assets.s3.gra.io.cloud.ovh.net/memoire/";
+/** Stockage public des images POP (Mémoire, Muséofile) */
+const POP_ASSETS = "https://popcorn-prd-perf-assets.s3.gra.io.cloud.ovh.net/";
+export const MEMOIRE_IMAGE_BASE = `${POP_ASSETS}memoire/`;
+
+/** Image redimensionnée par POP (les photos Muséofile peuvent dépasser 5 000 px) */
+export function popResized(url, width = 640) {
+  return `https://pop.culture.gouv.fr/_next/image?url=${encodeURIComponent(url)}&w=${width}&q=75`;
+}
+
+/** Photo d'un musée sur POP (présente pour environ 3 musées sur 4) */
+export function museofileImageUrl(identifiant) {
+  const id = encodeURIComponent(identifiant);
+  return `${POP_ASSETS}museo/${id}/museofile${id}.jpg`;
+}
 
 const PMTILES = {
   events: "https://data.geopf.fr/chunk/telechargement/download/DATATOURISME.FMA/archive/data.pmtiles",
@@ -387,9 +399,12 @@ function museofileToPlace(row) {
   if (!coords) {
     return null;
   }
+  const photo = museofileImageUrl(row.Identifiant);
   return {
     id: `museo-${row.Identifiant}`,
     theme: "musee",
+    image: popResized(photo, 640),
+    photos: [{ url: photo, thumb: popResized(photo, 1080), credit: "Muséofile, ministère de la Culture" }],
     name: capitalize(row.Nom_officiel),
     category: "Musée de France",
     commune: row.Ville,

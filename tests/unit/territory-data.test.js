@@ -9,6 +9,8 @@ import {
   parseDateRange,
   parseLatLon,
   photosFromIndex,
+  museofileImageUrl,
+  popResized,
   MEMOIRE_IMAGE_BASE,
   tileImageUrl,
   tilesAround,
@@ -120,5 +122,12 @@ describe("territory-data", () => {
     expect(MEMOIRE_IMAGE_BASE).toBe("https://popcorn-prd-perf-assets.s3.gra.io.cloud.ovh.net/memoire/");
     expect(photosFromIndex(index, "PA99999999")).toEqual([]);
     expect(photosFromIndex(undefined, "PA00080566")).toEqual([]);
+  });
+
+  it("builds Muséofile photo URLs and POP resized thumbnails", () => {
+    expect(museofileImageUrl("M0866")).toBe("https://popcorn-prd-perf-assets.s3.gra.io.cloud.ovh.net/museo/M0866/museofileM0866.jpg");
+    expect(popResized(museofileImageUrl("M0866"), 640)).toBe(
+      "https://pop.culture.gouv.fr/_next/image?url=https%3A%2F%2Fpopcorn-prd-perf-assets.s3.gra.io.cloud.ovh.net%2Fmuseo%2FM0866%2FmuseofileM0866.jpg&w=640&q=75"
+    );
   });
 });

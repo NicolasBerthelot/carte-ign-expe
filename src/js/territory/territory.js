@@ -74,11 +74,15 @@ function safeUrl(url) {
   }
 }
 
-function img(src, cls, fallback = "") {
+/**
+ * Image avec repli : si src ne se charge pas, essaie fallbackSrc (ex. orthophoto), sinon masque l'image
+ */
+function img(src, cls, fallbackSrc = "") {
   if (!src) {
-    return fallback;
+    return "";
   }
-  return `<img alt="" loading="lazy" class="${cls}" src="${esc(src)}" onerror="this.onerror=null;this.classList.add('territoryImgError')">`;
+  const fallback = fallbackSrc && fallbackSrc !== src ? ` data-fallback="${esc(fallbackSrc)}"` : "";
+  return `<img alt="" loading="lazy" class="${cls}" src="${esc(src)}"${fallback} onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;delete this.dataset.fallback;this.classList.add('territoryImgFallback');}else{this.onerror=null;this.classList.add('territoryImgError');}">`;
 }
 
 class Territory {
@@ -446,6 +450,11 @@ class Territory {
     return place.image || tileImageUrl(place.lat, place.lng, zoom);
   }
 
+  /** Orthophoto du lieu, en repli d'une photo absente */
+  #placeFallback(place, zoom = 17) {
+    return place.image ? tileImageUrl(place.lat, place.lng, zoom) : "";
+  }
+
   #placeCardHtml(place) {
     return `
       <button type="button" class="territoryCard territoryPlaceCard" data-action="open-place" data-id="${esc(place.id)}"
@@ -456,7 +465,7 @@ class Territory {
           ${place.commune ? `<span class="territoryMuted territorySmall">${esc(place.commune)}</span>` : ""}
           <span class="territoryMuted territorySmall territoryDistance">${icon("navigation", 12)}${esc(this.#distanceText(place))}</span>
         </span>
-        ${img(this.#placeImage(place), "territoryPlaceImg")}
+        ${img(this.#placeImage(place), "territoryPlaceImg", this.#placeFallback(place))}
       </button>`;
   }
 
@@ -541,7 +550,7 @@ class Territory {
           <div class="territoryCarousel territoryCarouselSnap">
             ${items.slice(0, 30).map((p) => `
               <button type="button" class="territoryCard territoryBigCard" data-action="open-place" data-id="${esc(p.id)}" aria-label="${esc(p.name)}, ${esc(PLACE_THEMES[p.theme].label)}. Ouvrir la fiche">
-                ${img(this.#placeImage(p, 18), "territoryBigImg")}
+                ${img(this.#placeImage(p, 18), "territoryBigImg", this.#placeFallback(p, 18))}
                 <span class="territoryCardTitle">${esc(p.name)}</span>
                 <span class="territoryMuted territorySmall">${esc([p.commune, ""].filter(Boolean).join(""))}${p.commune ? ", " : ""}<span class="territoryWarm">${esc(this.#distanceText(p))}</span></span>
               </button>`).join("")}
@@ -632,9 +641,10 @@ class Territory {
   #galleryHtml(item) {
     const photos = this.#photosOf(item);
     if (photos.length < 2) {
-      return img(photos[0]?.url || this.#placeImage(item, 18), "territoryHeroImg");
+      return img(photos[0]?.thumb || photos[0]?.url || this.#placeImage(item, 18), "territoryHeroImg", tileImageUrl(item.lat, item.lng, 18));
     }
     const source = item.theme === "monument" ? "base Mémoire, ministère de la Culture" : esc(item.source);
+    // (galerie : 2 photos ou plus ; une photo seule s'affiche en en-tête)
     return `
       <div class="territoryGallery" data-gallery></div>
       <p class="territoryMuted territorySmall territoryGalleryCaption">${photos.length} photos · ${source} · touchez une photo pour l'agrandir et voir son crédit</p>`;
@@ -751,7 +761,7 @@ class Territory {
     default:
       break;
     }
-    const photoCredit = place.photos?.length === 1 ? ` Photo : ${esc(place.photos[0].credit)}.` : "";
+    const photoCredit = place.photos?.length === 1 && place.photos[0].credit ? ` <span class="territoryPhotoCredit">Photo : ${esc(place.photos[0].credit)}.</span>` : "";
     return `${this.#detailTop(place, kicker)}${body}
       <p class="territoryMuted territorySmall territorySources">Source : ${esc(place.source)}.${photoCredit}</p>
       </div>`;
