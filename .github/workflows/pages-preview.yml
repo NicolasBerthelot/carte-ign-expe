@@ -1,0 +1,65 @@
+name: Pages preview
+# Publie la version web de l'appli (build de www/) sur GitHub Pages,
+# pour visualiser les expérimentations dans un navigateur.
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Le dépôt IGNF publie déjà ses fichiers de config sur Pages (static.yml)
+    if: github.repository != 'IGNF/cartes-ign-app'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Make envfile
+        run: |
+          echo "GPF_key=${{ secrets.GPF_key }}" > .env
+          echo "signalement_url=${{ secrets.SIGNALEMENT_URL }}" >> .env
+          echo "osm_bearer_token=${{ secrets.OSM_BEARER_TOKEN }}" >> .env
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Add build info
+        run: |
+          echo "{\"commit\": \"${GITHUB_SHA}\", \"builtAt\": \"$(date -u +%FT%TZ)\"}" > www/build-info.json
+          touch www/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: www
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

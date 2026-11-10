@@ -1,4 +1,10 @@
-# Cartes IGN
+# Cartes IGN — fork d'expérimentation
+
+> Fork de [IGNF/cartes-ign-app](https://github.com/IGNF/cartes-ign-app) pour tester de nouvelles fonctionnalités.
+>
+> - **Version web** : https://nicolasberthelot.github.io/carte-ign-expe/ (republiée à chaque push sur `main`, workflow `pages-preview.yml`)
+> - **Version desktop** (Windows, macOS, Linux) : voir [desktop/README.md](desktop/README.md) ; paquets construits par le workflow « Desktop build » (onglet Actions)
+> - Se resynchroniser avec l'amont : `git remote add upstream https://github.com/IGNF/cartes-ign-app.git && git fetch upstream && git rebase upstream/main`
 
 [Guide utilisateur](https://www.ign.fr/publications-de-l-ign/institut/Publications/Autres_publications/livret-appli-cartes-ign.pdf)
 
