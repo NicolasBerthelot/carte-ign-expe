@@ -882,3 +882,8 @@
   background: url(../html/img/right-arrow.svg) center / cover no-repeat;
   flex-shrink: 0;
 }
+
+/* crédit masqué quand la photo est absente et remplacée par l'orthophoto */
+.territoryDetail:has(.territoryHeroImg.territoryImgFallback) .territoryPhotoCredit {
+  display: none;
+}
