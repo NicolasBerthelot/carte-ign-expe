@@ -70,7 +70,14 @@ module.exports = {
         use: [
           MiniCssExtractPlugin.loader,
           "css-loader",
-          "sass-loader"
+          {
+            loader: "sass-loader",
+            options: {
+              // Sans ça, Sass (style compressé) préfixe sa sortie d'un BOM UTF-8 qui se
+              // retrouve au milieu du bundle CSS et invalide la règle :root (variables de couleur)
+              sassOptions: { charset: false },
+            },
+          },
         ]
       },
       {
