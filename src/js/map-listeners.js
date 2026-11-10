@@ -33,49 +33,130 @@ const addListeners = () => {
     Location.disableTracking();
   });
 
-  // l'event contextmenu n'est pas enclenché par clic long sur la carte... https://github.com/maplibre/maplibre-gl-js/issues/373
-  // map.on("contextmenu", ...) serait mieux
-  // utilisation du HACK https://stackoverflow.com/questions/43459539/mapbox-gl-js-long-tap-press
+  /*
+   * Clic long (ou clic droit à la souris) : ouvre le panneau d'exploration du lieu ("contexte")
+   * - écran tactile : appui long (l'event contextmenu n'est pas enclenché par clic long sur la carte...
+   *   https://github.com/maplibre/maplibre-gl-js/issues/373 — HACK https://stackoverflow.com/questions/43459539/mapbox-gl-js-long-tap-press)
+   * - souris : bouton gauche maintenu, ou clic droit
+   * Le clic qui suit un appui long à la souris est neutralisé, pour ne pas déclencher en plus l'action du clic court.
+   */
+  const LONG_PRESS_DELAY = 500;
+  const MOUSE_MOVE_TOLERANCE = 6; // px
   let contextMenuTimeout = null;
+  let lastTouchTime = 0;
+  let suppressNextClick = false;
   const clearContextMenuTimeout = () => { clearTimeout(contextMenuTimeout); };
+
+  // Repère placé uniquement en mode défaut, position, informations, couches ou filtres POI, hors plein écran
+  const canOpenContextMenu = () => {
+    if (DOM.$fullScreenBtn.querySelector("button").classList.contains("maplibregl-ctrl-shrink")) {
+      return false;
+    }
+    return Globals.backButtonState === "default" ||
+      Globals.backButtonState.split("-")[0].split("%")[0] === "position" ||
+      Globals.backButtonState === "informations" ||
+      Globals.backButtonState === "layerManager" ||
+      Globals.backButtonState === "poi";
+  };
+
+  const openContextMenu = (lngLat) => {
+    if (Globals.backButtonState.split("-")[0].split("%")[0] === "position") {
+      Globals.menu.close("position");
+    }
+    Globals.position.compute({ lngLat: lngLat, type: "context" }).then(() => {
+      Globals.menu.open("position%contexte");
+    });
+    if (Globals.searchResultMarker) {
+      Globals.searchResultMarker.remove();
+    }
+    Globals.searchResultMarker = new maplibregl.Marker({element: Globals.searchResultIcon, anchor: "bottom"})
+      .setLngLat(lngLat)
+      .addTo(Globals.map);
+  };
+
+  // Écran tactile
   map.on("touchstart", (evt) => {
+    lastTouchTime = Date.now();
     if (evt.originalEvent.touches.length > 1) {
       return;
     }
-    // Repère placé uniquement en mode défaut, position, informations, couches ou filtres POI
-    if (
-      Globals.backButtonState !== "default" &&
-      Globals.backButtonState.split("-")[0].split("%")[0] !== "position" &&
-      Globals.backButtonState !== "informations" &&
-      Globals.backButtonState !== "layerManager" &&
-      Globals.backButtonState !== "poi" &&
-      !DOM.$fullScreenBtn.querySelector("button").classList.contains("maplibregl-ctrl-shrink")
-    ) {
+    if (!canOpenContextMenu()) {
       return;
     }
-    if (DOM.$fullScreenBtn.querySelector("button").classList.contains("maplibregl-ctrl-shrink")) {
+    contextMenuTimeout = setTimeout(() => openContextMenu(evt.lngLat), LONG_PRESS_DELAY);
+  });
+  map.on("touchend", clearContextMenuTimeout);
+  map.on("touchcancel", clearContextMenuTimeout);
+  map.on("touchmove", clearContextMenuTimeout);
+  map.on("moveend", clearContextMenuTimeout);
+  map.on("gesturestart", clearContextMenuTimeout);
+  map.on("gesturechange", clearContextMenuTimeout);
+  map.on("gestureend", clearContextMenuTimeout);
+
+  // Souris : bouton gauche maintenu
+  let mouseDownPoint = null;
+  map.on("mousedown", (evt) => {
+    // les events souris émulés après un toucher sont ignorés
+    if (evt.originalEvent.button !== 0 || Date.now() - lastTouchTime < 1000) {
       return;
     }
+    clearContextMenuTimeout();
+    if (!canOpenContextMenu()) {
+      return;
+    }
+    mouseDownPoint = evt.point;
     contextMenuTimeout = setTimeout(() => {
-      if (Globals.backButtonState.split("-")[0].split("%")[0] === "position") {
-        Globals.menu.close("position");
-      }
-      Globals.position.compute({ lngLat: evt.lngLat, type: "context" }).then(() => {
-        Globals.menu.open("position%contexte");
-      });
-      Globals.searchResultMarker = new maplibregl.Marker({element: Globals.searchResultIcon, anchor: "bottom"})
-        .setLngLat(evt.lngLat)
-        .addTo(Globals.map);
-    }, 500);
-    map.on("touchend", clearContextMenuTimeout);
-    map.on("touchcancel", clearContextMenuTimeout);
-    map.on("touchmove", clearContextMenuTimeout);
-    map.on("pointerdrag", clearContextMenuTimeout);
-    map.on("pointermove", clearContextMenuTimeout);
-    map.on("moveend", clearContextMenuTimeout);
-    map.on("gesturestart", clearContextMenuTimeout);
-    map.on("gesturechange", clearContextMenuTimeout);
-    map.on("gestureend", clearContextMenuTimeout);
+      mouseDownPoint = null;
+      suppressNextClick = true;
+      openContextMenu(evt.lngLat);
+    }, LONG_PRESS_DELAY);
+  });
+  map.on("mousemove", (evt) => {
+    if (mouseDownPoint && mouseDownPoint.dist(evt.point) > MOUSE_MOVE_TOLERANCE) {
+      mouseDownPoint = null;
+      clearContextMenuTimeout();
+    }
+  });
+  map.on("mouseup", () => {
+    mouseDownPoint = null;
+    clearContextMenuTimeout();
+  });
+  map.on("dragstart", () => {
+    mouseDownPoint = null;
+    clearContextMenuTimeout();
+  });
+  // Neutralise le clic qui termine un appui long (phase de capture, avant les écouteurs de MapLibre)
+  map.getContainer().addEventListener("click", (evt) => {
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      evt.stopPropagation();
+      evt.preventDefault();
+    }
+  }, true);
+  // Un nouvel appui annule une neutralisation restée en attente (ex. : bouton relâché hors de la carte)
+  let rightDownPoint = null;
+  map.getContainer().addEventListener("mousedown", (evt) => {
+    suppressNextClick = false;
+    if (evt.button === 2) {
+      rightDownPoint = { x: evt.clientX, y: evt.clientY };
+    }
+  }, true);
+
+  // Souris : clic droit (sans glisser, le glisser-droit sert à faire pivoter la carte)
+  map.on("contextmenu", (evt) => {
+    evt.preventDefault();
+    if (Date.now() - lastTouchTime < 1000) {
+      return;
+    }
+    const e = evt.originalEvent;
+    if (rightDownPoint && Math.hypot(e.clientX - rightDownPoint.x, e.clientY - rightDownPoint.y) > MOUSE_MOVE_TOLERANCE) {
+      return;
+    }
+    clearContextMenuTimeout();
+    if (!canOpenContextMenu()) {
+      return;
+    }
+    openContextMenu(evt.lngLat);
   });
 
   // map.on("data", (e) => {
