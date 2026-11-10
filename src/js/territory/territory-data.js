@@ -30,6 +30,11 @@ const RESOURCES = {
   jardins: "49a648e5-ef47-41fe-aa18-9323a811c2c7",
 };
 
+/** Index des photos Mémoire par département (workflow « Mérimée photos », publié avec GitHub Pages) */
+const PHOTO_INDEX_URL = "https://nicolasberthelot.github.io/carte-ign-expe/data/merimee-photos";
+/** Stockage public des images POP / Mémoire */
+export const MEMOIRE_IMAGE_BASE = "https://popcorn-prd-perf-assets.s3.gra.io.cloud.ovh.net/memoire/";
+
 const PMTILES = {
   events: "https://data.geopf.fr/chunk/telechargement/download/DATATOURISME.FMA/archive/data.pmtiles",
   treks: "https://data.geopf.fr/chunk/telechargement/download/HIKING.GEOTREK/archive/data.pmtiles",
@@ -348,7 +353,7 @@ const MERIMEE_COLUMNS = [
   "coordonnees_au_format_WGS84", "Adresse_forme_editoriale", "Statut_juridique_de_l_edifice",
   "Siecle_de_la_campagne_principale_de_construction", "Datation_de_l_edifice", "Typologie_de_la_protection",
   "Precision_de_la_protection", "Date_et_typologie_de_la_protection", "Historique", "Description_de_l_edifice",
-  "Cadre_de_l_etude", "Lien_vers_la_base_Archiv_MH", "Domaine",
+  "Cadre_de_l_etude", "Lien_vers_la_base_Archiv_MH", "Domaine", "Departement_format_numerique",
 ];
 
 function capitalize(str) {
@@ -370,6 +375,7 @@ function merimeeToPlace(row) {
     category: capitalize(row.Denomination_de_l_edifice),
     commune: row.Commune_forme_editoriale,
     address: row.Adresse_forme_editoriale,
+    departement: row.Departement_format_numerique,
     ...coords,
     source: "Ministère de la Culture (Mérimée)",
     raw: row,
@@ -494,7 +500,68 @@ export async function getPlaces(lat, lng, communes, signal) {
     p.distance = distanceMeters(lat, lng, p.lat, p.lng);
   });
   places.sort((a, b) => a.distance - b.distance);
+  try {
+    await attachMerimeePhotos(places, signal);
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      console.warn("[territoire] photos Mémoire :", err);
+    }
+  }
   return { places, errors };
+}
+
+/**
+ * Photos d'une notice à partir d'un fichier d'index départemental
+ * @param {{c: string[], p: Object<string, Array>}} index
+ * @param {string} ref référence Mérimée (PA…, IA…, DN…)
+ * @returns {Array<{url: string, credit: string}>}
+ */
+export function photosFromIndex(index, ref) {
+  const entries = index?.p?.[ref] || [];
+  return entries.map(([path, creditIndex]) => ({
+    url: MEMOIRE_IMAGE_BASE + path,
+    credit: index.c?.[creditIndex] || "",
+  }));
+}
+
+const photoIndexCache = {};
+
+function getPhotoIndex(departement, signal) {
+  if (!photoIndexCache[departement]) {
+    photoIndexCache[departement] = fetchJson(`${PHOTO_INDEX_URL}/${encodeURIComponent(departement)}.json`, signal)
+      .catch((err) => {
+        delete photoIndexCache[departement];
+        throw err;
+      });
+  }
+  return photoIndexCache[departement];
+}
+
+/**
+ * Ajoute aux monuments historiques les photos de la base Mémoire (ministère de la Culture)
+ */
+export async function attachMerimeePhotos(places, signal) {
+  const monuments = places.filter((p) => p.theme === "monument" && p.raw?.Reference);
+  const departements = [...new Set(monuments.map((p) => String(p.departement || "").padStart(2, "0")).filter((d) => /^(\d{2}|2A|2B|97\d)$/.test(d)))];
+  const indexes = {};
+  await Promise.all(departements.map(async (dep) => {
+    try {
+      indexes[dep] = await getPhotoIndex(dep, signal);
+    } catch (err) {
+      if (err.name === "AbortError") {
+        throw err;
+      }
+      console.warn(`[territoire] index photos ${dep} :`, err);
+    }
+  }));
+  monuments.forEach((place) => {
+    const index = indexes[String(place.departement || "").padStart(2, "0")];
+    const photos = photosFromIndex(index, place.raw.Reference);
+    if (photos.length) {
+      place.photos = photos;
+      place.image = photos[0].url;
+    }
+  });
 }
 
 /* -------------------------------------------------------------------------- */
