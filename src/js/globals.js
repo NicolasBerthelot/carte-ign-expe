@@ -59,6 +59,8 @@ let isochrone = null;
 
 // Global Position plugin
 let position = null;
+// volet "Mon territoire"
+let territory = null;
 
 // Global Compare Plugin
 let compare = null;
@@ -178,6 +180,7 @@ const Globals = {
   directions,
   isochrone,
   position,
+  territory,
   search,
   compare,
   comparedLayers,
@@ -211,6 +214,7 @@ const BACK_BUTTON_STATE_TITLES_FR = {
   informationsScreenLegal: "Mentions légales",
   informationsScreenCookies: "Cookies",
   newsfeed: "Cartes thématiques",
+  territory: "Mon territoire",
   imageOverlay: "Image en plein écran",
   layerManager: "Cartes et données",
   directions: "S'y rendre",
