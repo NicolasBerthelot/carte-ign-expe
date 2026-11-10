@@ -35,6 +35,11 @@ import TerritoryData, {
 } from "./territory-data";
 
 const HIGHLIGHT_SOURCE = "territory-highlight";
+/** Couches de l'appli correspondant aux sorties : « Idées rando » (Geotrek) et « Animations locales » (DATAtourisme) */
+const OUTING_LAYERS = {
+  trek: "HIKING.GEOTREK$TMS",
+  event: "DATATOURISME.FMA$TMS",
+};
 const PLACE_THEME_ORDER = ["monument", "unesco", "illustres", "musee", "jardin"];
 const PROTECTED_LABELS = {
   "Parc national": "Parc national",
@@ -964,12 +969,39 @@ class Territory {
     }
     this.map.getSource(HIGHLIGHT_SOURCE).setData({ type: "FeatureCollection", features });
     this.marker = new maplibregl.Marker({ color: "#26A581" }).setLngLat([item.lng, item.lat]).addTo(this.map);
+    this.#showOutingLayer(item);
     this.#reduceMenu();
     if (bounds) {
       this.map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
     } else {
       this.map.flyTo({ center: [item.lng, item.lat], zoom: Math.max(this.map.getZoom(), 16) });
     }
+  }
+
+  /**
+   * Affiche la couche de l'appli correspondant à la sortie (« Idées rando » pour une randonnée,
+   * « Animations locales » pour un événement), comme si on l'ajoutait depuis le catalogue
+   */
+  #showOutingLayer(item) {
+    const layerId = OUTING_LAYERS[item.kind];
+    const catalogue = Globals.manager?.layerCatalogue;
+    const element = layerId && document.getElementById(layerId);
+    if (!catalogue || !element) {
+      return;
+    }
+    if (!element.classList.contains("selectedLayer")) {
+      catalogue.addLayer(layerId);
+    }
+    // garde le tracé sélectionné au-dessus de la couche ajoutée
+    const raiseHighlight = () => {
+      [`${HIGHLIGHT_SOURCE}-line`, `${HIGHLIGHT_SOURCE}-points`].forEach((id) => {
+        if (this.map.getLayer(id)) {
+          this.map.moveLayer(id);
+        }
+      });
+    };
+    this.map.once("idle", raiseHighlight);
+    setTimeout(raiseHighlight, 1500);
   }
 
   #showGroup(theme) {
