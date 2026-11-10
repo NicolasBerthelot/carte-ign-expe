@@ -190,10 +190,18 @@
   display: flex;
   gap: 12px;
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-left: 16px;
   margin: 0 -16px;
   padding: 0 16px 4px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+}
+
+.territoryCarousel > * {
+  scroll-snap-align: start;
 }
 
 .territoryCarousel::-webkit-scrollbar {
@@ -886,4 +894,54 @@
 /* crédit masqué quand la photo est absente et remplacée par l'orthophoto */
 .territoryDetail:has(.territoryHeroImg.territoryImgFallback) .territoryPhotoCredit {
   display: none;
+}
+
+/* Listes verticales (plus simples au doigt que des carrousels) */
+.territoryRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#territoryWindow .territoryRow {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 10px 8px 8px;
+}
+
+.territoryRowImg {
+  width: 88px;
+  height: 66px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--light-grey);
+}
+
+.territoryRowBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.territoryRowArrow {
+  color: var(--grey);
+  display: flex;
+  flex-shrink: 0;
+}
+
+#territoryWindow .territoryMoreBtn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  color: var(--darker-green);
+  font-family: "Open Sans Semibold";
+  font-size: 13px;
+  text-align: center;
 }

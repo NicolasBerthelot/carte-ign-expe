@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Installer Cartes IGN — version d'expérimentation</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <style>
+    :root { --green: #26A581; --dark-green: #1C7B66; --text: #091625; --muted: #6A727A; --card: #F4F6F8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Open Sans", sans-serif; color: var(--text); background: #fff; line-height: 1.5; }
+    main { max-width: 560px; margin: 0 auto; padding: 32px 20px 48px; }
+    header { display: flex; align-items: center; gap: 16px; }
+    header img { width: 72px; height: 72px; border-radius: 16px; box-shadow: 0 2px 8px rgba(9, 22, 37, .12); }
+    h1 { font-size: 22px; margin: 0; line-height: 1.2; }
+    .tag { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 999px; background: #FFEEE4; color: #A8592E; font-size: 12px; font-weight: 600; }
+    p { margin: 12px 0; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; margin-top: 20px; padding: 0 20px; border: none; border-radius: 999px; background: var(--green); color: #fff; font: inherit; font-size: 17px; font-weight: 600; text-decoration: none; cursor: pointer; }
+    .btn.secondary { background: var(--card); color: var(--dark-green); }
+    .btn[hidden] { display: none; }
+    .card { margin-top: 20px; padding: 16px 18px; border-radius: 12px; background: var(--card); }
+    .card h2 { font-size: 16px; margin: 0 0 6px; }
+    .card ol { margin: 0; padding-left: 20px; }
+    .card li + li { margin-top: 4px; }
+    .card[hidden] { display: none; }
+    .qr { display: flex; gap: 16px; align-items: center; }
+    .qr img { width: 132px; height: 132px; flex-shrink: 0; background: #fff; border-radius: 8px; }
+    .ok { color: var(--dark-green); font-weight: 600; }
+    kbd { font: inherit; font-weight: 600; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icons/icon-192.png" alt="">
+    <div>
+      <h1>Cartes IGN</h1>
+      <span class="tag">Version d'expérimentation</span>
+    </div>
+  </header>
+
+  <p>Installez cette version sur votre téléphone, votre tablette ou votre ordinateur : elle s'ouvre comme une application, en plein écran, depuis l'écran d'accueil. Elle se met à jour automatiquement.</p>
+  <p class="muted">Elle s'installe à côté de l'application Cartes IGN officielle, sans la remplacer.</p>
+
+  <button class="btn" id="installBtn" hidden>Installer l'application</button>
+  <p class="ok" id="installed" hidden>✓ Application installée : retrouvez « Cartes IGN β » sur votre écran d'accueil.</p>
+
+  <div class="card" id="ios" hidden>
+    <h2>Sur iPhone ou iPad (Safari)</h2>
+    <ol>
+      <li>Touchez le bouton <kbd>Partager</kbd> (le carré avec une flèche vers le haut).</li>
+      <li>Choisissez <kbd>Sur l'écran d'accueil</kbd>.</li>
+      <li>Touchez <kbd>Ajouter</kbd>.</li>
+    </ol>
+    <p class="muted">L'installation n'est possible que depuis Safari.</p>
+  </div>
+
+  <div class="card" id="android" hidden>
+    <h2>Sur Android (Chrome)</h2>
+    <ol>
+      <li>Ouvrez le menu <kbd>⋮</kbd> en haut à droite.</li>
+      <li>Choisissez <kbd>Installer l'application</kbd> ou <kbd>Ajouter à l'écran d'accueil</kbd>.</li>
+    </ol>
+  </div>
+
+  <div class="card" id="desktop" hidden>
+    <h2>Sur ordinateur</h2>
+    <p style="margin-top:0">Dans Chrome ou Edge, cliquez sur l'icône d'installation à droite de la barre d'adresse. Pour l'installer sur un téléphone, scannez ce code :</p>
+    <div class="qr">
+      <img src="icons/installer-qr.svg" alt="QR code vers cette page">
+      <span class="muted">nicolasberthelot.github.io/<wbr>carte-ign-expe/installer.html</span>
+    </div>
+  </div>
+
+  <a class="btn secondary" href="./">Ouvrir dans le navigateur</a>
+</main>
+<script>
+  (function () {
+    var ua = navigator.userAgent;
+    var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var isAndroid = /Android/i.test(ua);
+    var standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+    var show = function (id) { document.getElementById(id).hidden = false; };
+    if (standalone) { show("installed"); return; }
+    if (isIOS) { show("ios"); } else if (isAndroid) { show("android"); } else { show("desktop"); }
+
+    var deferred = null;
+    var btn = document.getElementById("installBtn");
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      deferred = e;
+      btn.hidden = false;
+    });
+    btn.addEventListener("click", function () {
+      if (!deferred) { return; }
+      deferred.prompt();
+      deferred.userChoice.then(function () { deferred = null; btn.hidden = true; });
+    });
+    window.addEventListener("appinstalled", function () {
+      btn.hidden = true;
+      show("installed");
+    });
+  })();
+</script>
+</body>
+</html>

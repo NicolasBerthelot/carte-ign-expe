@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "Cartes IGN — version d'expérimentation",
+  "short_name": "Cartes IGN β",
+  "description": "Version d'expérimentation de Cartes IGN : découvrez la France autrement et observez l'évolution du territoire.",
+  "lang": "fr-FR",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "categories": ["navigation", "travel", "education"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
