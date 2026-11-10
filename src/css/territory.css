@@ -22,6 +22,10 @@
 #territoryWindow *::before,
 #territoryWindow *::after {
   box-sizing: border-box;
+  /* La règle globale « * { overscroll-behavior: none } » empêche un bloc de passer le
+     défilement à son parent : un glissement commencé sur une carte (overflow: hidden)
+     ne faisait pas défiler le carrousel. On rétablit l'enchaînement dans le volet. */
+  overscroll-behavior: auto;
 }
 
 #territoryWindow button {
@@ -219,7 +223,8 @@
   border: 1px solid var(--light-grey);
   border-radius: 8px;
   box-shadow: 0 1px 2px rgba(9, 22, 37, 0.04);
-  overflow: hidden;
+  /* clip : arrondit les images sans faire de la carte un conteneur de défilement */
+  overflow: clip;
 }
 
 /* retour visuel sans transformation (une mise à l'échelle au toucher gêne le glissement) */
