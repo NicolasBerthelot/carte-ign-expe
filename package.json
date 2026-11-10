@@ -28,7 +28,10 @@
     "build:android:foss:dev": "npm run build:dev && npx cap sync && cd android && ./gradlew -PbuildFlavor=fdroid",
     "bump:version": "echo 'npm run bump:app:versions -- $1' > temp.sh && echo 'npm version $1 --git-tag-version false' >> temp.sh && echo 'git add -u && git commit -m \"$1\" && git tag v$1' >> temp.sh && sh temp.sh",
     "postbump:version": "rm temp.sh",
-    "bump:app:versions": "python bump_version.py"
+    "bump:app:versions": "python bump_version.py",
+    "desktop:install": "npm --prefix desktop ci",
+    "desktop": "npm run build:dev && npm --prefix desktop start",
+    "desktop:dist": "npm run build && npm --prefix desktop run dist"
   },
   "keywords": [
     "ecosystem:capacitor"

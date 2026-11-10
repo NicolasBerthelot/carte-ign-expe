@@ -1,0 +1,82 @@
+{
+  "name": "cartes-ign-desktop",
+  "productName": "Cartes IGN",
+  "version": "3.5.19",
+  "description": "Version desktop de Cartes IGN — découvrez la France autrement et observez l'évolution du territoire",
+  "main": "main.js",
+  "author": {
+    "name": "IGN",
+    "email": "contact.geoservices@ign.fr"
+  },
+  "homepage": "https://github.com/IGNF/cartes-ign-app",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "scripts": {
+    "prepare-web": "node scripts/prepare-web.js",
+    "start": "npm run prepare-web && electron .",
+    "start:nobuild": "electron .",
+    "dist": "npm run prepare-web && node scripts/dist.js",
+    "dist:linux": "npm run prepare-web && node scripts/dist.js --linux",
+    "dist:win": "npm run prepare-web && node scripts/dist.js --win",
+    "dist:mac": "npm run prepare-web && node scripts/dist.js --mac"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "fr.ign.geoportail.desktop",
+    "productName": "Cartes IGN",
+    "copyright": "Copyright © IGN",
+    "artifactName": "Cartes-IGN-${version}-${os}-${arch}.${ext}",
+    "publish": [],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "app/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Science;Geography;Maps",
+      "executableName": "cartes-ign",
+      "synopsis": "Cartes et données de l'IGN",
+      "maintainer": "IGN <contact.geoservices@ign.fr>"
+    },
+    "deb": {
+      "packageName": "cartes-ign"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "language": "1036",
+      "shortcutName": "Cartes IGN"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.navigation",
+      "extendInfo": {
+        "NSLocationUsageDescription": "Cartes IGN utilise votre position pour vous situer sur la carte.",
+        "NSLocationWhenInUseUsageDescription": "Cartes IGN utilise votre position pour vous situer sur la carte."
+      }
+    }
+  }
+}

@@ -32,6 +32,10 @@ Installation sur un émulateur Android ou sur un téléphone Android branché en
 
 ```npm run run:android```
 
+Version desktop (Electron) — voir [desktop/README.md](desktop/README.md) :
+
+```npm run desktop:install && npm run desktop```
+
 ## Contributions
 
 Pour suggérer des modifications, merci d'utiliser les [issues](https://github.com/IGNF/cartes-ign-app/issues) de ce dépôt

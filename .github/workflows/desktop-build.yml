@@ -1,0 +1,80 @@
+name: Desktop build
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'desktop-*'
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop-build.yml'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: --linux
+          - os: windows-latest
+            target: --win
+          - os: macos-latest
+            target: --mac --x64 --arm64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Make envfile
+        shell: bash
+        run: |
+          echo "GPF_key=${{ secrets.GPF_key }}" > .env
+          echo "signalement_url=${{ secrets.SIGNALEMENT_URL }}" >> .env
+          echo "osm_bearer_token=${{ secrets.OSM_BEARER_TOKEN }}" >> .env
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install desktop dependencies
+        run: npm ci
+        working-directory: desktop
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Build desktop packages
+        working-directory: desktop
+        shell: bash
+        run: |
+          npm run prepare-web
+          node scripts/dist.js ${{ matrix.target }}
+        env:
+          # Pas de signature de code pour l'instant (paquets de test)
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: cartes-ign-desktop-${{ runner.os }}
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+          retention-days: 14
