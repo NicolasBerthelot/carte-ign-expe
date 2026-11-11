@@ -1,0 +1,19 @@
+{
+ "title": "Cartes IGN",
+ "installs": "1 000 000+",
+ "minInstalls": 1000000,
+ "maxInstalls": 2321774,
+ "score": 4.6839466,
+ "ratings": 5992,
+ "reviews": 2968,
+ "histogram": {
+  "1": 170,
+  "2": 49,
+  "3": 150,
+  "4": 760,
+  "5": 4859
+ },
+ "updated": 1793635759000,
+ "version": "3.5.19",
+ "released": "11 juin 2015"
+}
