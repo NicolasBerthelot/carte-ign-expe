@@ -3,49 +3,31 @@ on:
   push:
     branches: ["probe/sources"]
 jobs:
-  probe:
+  reviews:
     runs-on: ubuntu-latest
     steps:
-      - name: Sondes
-        shell: bash
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Avis App Store et Play Store
         run: |
-          set +e
-          O="Origin: https://nicolasberthelot.github.io"
-          H=https://hydra.s3.rbx.io.cloud.ovh.net
-          echo "=== CORS hydra (parquet Mérimée, pmtiles Muséofile)"
-          for U in $H/parquet/3a52af4a-f9da-4dcc-8110-b07774dfb3bc.parquet $H/pmtiles/5ccd6238-4fb0-4b2c-b14a-581909489320.pmtiles; do
-            echo "--- $U"; curl -s -o /dev/null -D - -H "$O" -H "Range: bytes=0-99" "$U" | grep -iE "^HTTP|access-control|content-range|cache-control|etag|accept-ranges"
-            echo "preflight:"; curl -s -o /dev/null -D - -X OPTIONS -H "$O" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: range" "$U" | grep -iE "^HTTP|access-control"
+          mkdir out && cd out && npm init -y >/dev/null && npm i google-play-scraper@10 >/dev/null 2>&1
+          for p in 1 2 3 4 5 6 7 8 9 10; do
+            curl -s "https://itunes.apple.com/fr/rss/customerreviews/page=$p/id=748345888/sortby=mostrecent/json" -o ios-$p.json
           done
-          pip install -q pyarrow pmtiles mapbox-vector-tile 2>/dev/null
-          curl -s -o m.parquet $H/parquet/3a52af4a-f9da-4dcc-8110-b07774dfb3bc.parquet
-          python3 - <<'PY'
-          import pyarrow.parquet as pq
-          f = pq.ParquetFile("m.parquet"); md = f.metadata
-          print("=== Parquet Mérimée :", md.num_rows, "lignes,", md.num_row_groups, "groupes de lignes")
-          names = md.schema.names
-          want = ["Reference","Titre_editorial_de_la_notice","Denomination_de_l_edifice","Commune_forme_editoriale","coordonnees_au_format_WGS84","Departement_format_numerique"]
-          for c in want:
-              i = names.index(c); tot = sum(md.row_group(g).column(i).total_compressed_size for g in range(md.num_row_groups))
-              print(f"  {c}: {md.schema.column(i).physical_type} compressé {tot/1e3:.0f} Ko, stats={md.row_group(0).column(i).statistics.has_min_max if md.row_group(0).column(i).statistics else None}")
-          t = f.read(columns=["coordonnees_au_format_WGS84"]).column(0).to_pylist()
-          print("  exemples coords :", t[:3], " vides :", sum(1 for x in t if not x))
-          PY
-          python3 - <<'PY'
-          from pmtiles.reader import Reader, MmapSource
-          import urllib.request, json, gzip
-          url = "https://hydra.s3.rbx.io.cloud.ovh.net/pmtiles/5ccd6238-4fb0-4b2c-b14a-581909489320.pmtiles"
-          data = urllib.request.urlopen(url).read(); open("m.pmtiles","wb").write(data)
-          with open("m.pmtiles","rb") as fh:
-              r = Reader(MmapSource(fh)); h = r.header(); m = r.metadata()
-              print("=== PMTiles Muséofile : zooms", h["min_zoom"], "-", h["max_zoom"], "; couches :", [(l["id"], list(l.get("fields",{}))[:12]) for l in m.get("vector_layers",[])])
-              import mapbox_vector_tile, math
-              z=10; lat,lng=48.78,2.316
-              x=int((lng+180)/360*2**z); y=int((1-math.log(math.tan(math.radians(lat))+1/math.cos(math.radians(lat)))/math.pi)/2*2**z)
-              t = r.get(z,x,y)
-              if t:
-                  try: t = gzip.decompress(t)
-                  except Exception: pass
-                  d = mapbox_vector_tile.decode(t)
-                  for k,v in d.items(): print("  tuile z10 :", k, len(v["features"]), "objets ; ex :", {kk: str(vv)[:40] for kk,vv in list(v["features"][0]["properties"].items())[:8]})
-          PY
+          cat > play.mjs <<'JS'
+          import gplay from "google-play-scraper";
+          import fs from "fs";
+          const app = await gplay.app({ appId: "fr.ign.geoportail", lang: "fr", country: "fr" });
+          const pick = ({ title, installs, minInstalls, maxInstalls, score, ratings, reviews, histogram, updated, version, released }) =>
+            ({ title, installs, minInstalls, maxInstalls, score, ratings, reviews, histogram, updated, version, released });
+          fs.writeFileSync("play-app.json", JSON.stringify(pick(app), null, 1));
+          for (const [name, sort] of [["recent", gplay.sort.NEWEST], ["helpful", gplay.sort.HELPFULNESS]]) {
+            const r = await gplay.reviews({ appId: "fr.ign.geoportail", lang: "fr", country: "fr", sort, num: 1500 });
+            fs.writeFileSync(`play-${name}.json`, JSON.stringify(r.data.map(({ date, score, text, thumbsUp, version, replyText }) => ({ date, score, text, thumbsUp, version, reply: !!replyText })), null, 1));
+            console.log(name, r.data.length);
+          }
+          JS
+          node play.mjs || echo "play échoué"
+          ls -la
+      - uses: actions/upload-artifact@v4
+        with: { name: avis, path: out/*.json }
