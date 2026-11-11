@@ -11,43 +11,41 @@ jobs:
         run: |
           set +e
           O="Origin: https://nicolasberthelot.github.io"
-          echo "=== 1. WMS-v capabilities monument_historique"
-          curl -s "https://data.geopf.fr/wms-v/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities" > caps.xml
+          H=https://hydra.s3.rbx.io.cloud.ovh.net
+          echo "=== CORS hydra (parquet Mérimée, pmtiles Muséofile)"
+          for U in $H/parquet/3a52af4a-f9da-4dcc-8110-b07774dfb3bc.parquet $H/pmtiles/5ccd6238-4fb0-4b2c-b14a-581909489320.pmtiles; do
+            echo "--- $U"; curl -s -o /dev/null -D - -H "$O" -H "Range: bytes=0-99" "$U" | grep -iE "^HTTP|access-control|content-range|cache-control|etag|accept-ranges"
+            echo "preflight:"; curl -s -o /dev/null -D - -X OPTIONS -H "$O" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: range" "$U" | grep -iE "^HTTP|access-control"
+          done
+          pip install -q pyarrow pmtiles mapbox-vector-tile 2>/dev/null
+          curl -s -o m.parquet $H/parquet/3a52af4a-f9da-4dcc-8110-b07774dfb3bc.parquet
           python3 - <<'PY'
-          import re
-          x=open("caps.xml",encoding="utf-8",errors="replace").read()
-          for name in ["monument_historique","monument_naturel_site","POI.MUSEUM","Monuments_nationaux_France"]:
-              i=x.find("<Name>"+name+"</Name>")
-              if i<0: print(name,"absent"); continue
-              blk=x[max(0,i-200):i+3000]
-              blk=blk[:blk.find("</Layer>")]
-              print("---",name); print(re.sub(r"\s+"," ",blk)[:1500])
+          import pyarrow.parquet as pq
+          f = pq.ParquetFile("m.parquet"); md = f.metadata
+          print("=== Parquet Mérimée :", md.num_rows, "lignes,", md.num_row_groups, "groupes de lignes")
+          names = md.schema.names
+          want = ["Reference","Titre_editorial_de_la_notice","Denomination_de_l_edifice","Commune_forme_editoriale","coordonnees_au_format_WGS84","Departement_format_numerique"]
+          for c in want:
+              i = names.index(c); tot = sum(md.row_group(g).column(i).total_compressed_size for g in range(md.num_row_groups))
+              print(f"  {c}: {md.schema.column(i).physical_type} compressé {tot/1e3:.0f} Ko, stats={md.row_group(0).column(i).statistics.has_min_max if md.row_group(0).column(i).statistics else None}")
+          t = f.read(columns=["coordonnees_au_format_WGS84"]).column(0).to_pylist()
+          print("  exemples coords :", t[:3], " vides :", sum(1 for x in t if not x))
           PY
-          echo "=== 2. GFI monument_historique (Bourg-la-Reine, plusieurs échelles)"
-          for W in 101 1000 3000; do
-            for B in 0.02 0.04; do
-              BBOX="$(python3 -c "print(','.join(str(v) for v in [48.78-$B,2.316-$B*1.5,48.78+$B,2.316+$B*1.5]))")"
-              R=$(curl -s -H "$O" "https://data.geopf.fr/wms-v/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=monument_historique&QUERY_LAYERS=monument_historique&STYLES=&CRS=EPSG:4326&BBOX=$BBOX&WIDTH=$W&HEIGHT=$W&I=$((W/2))&J=$((W/2))&INFO_FORMAT=application/json&FEATURE_COUNT=200&BUFFER=$((W/2+10))")
-              echo "W=$W demi-cote=$B : $(echo "$R" | python3 -c "import sys,json
-          try:
-              j=json.load(sys.stdin); f=j.get('features',[]); print(len(f),'objets', (list(f[0]['properties'].items())[:14] if f else ''), (f[0]['geometry'] if f else ''))
-          except Exception as e: print('ERR', str(e)[:80])" 2>&1 | cut -c1-900)"
-            done
-          done
-          echo "=== 3. WFS : couches patrimoine"
-          curl -s "https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" | grep -oiE "<(wfs:)?Name>[^<]*(monument|merimee|mérimée|patrim|culture|museo|musee|illustre|jardin|protege)[^<]*</(wfs:)?Name>" | head -20
-          echo "=== 4. data.gouv : conversions parquet / geojson"
-          for DS in 5af120e5b595087cfabcde81 5d12ee8206e3e762c0c89a4c 5c90a51306e3e731ee4d34ca 5ee2fe1cba88d5c5a1179ef2; do
-            curl -s "https://www.data.gouv.fr/api/1/datasets/$DS/" | python3 -c "import sys,json
-          d=json.load(sys.stdin); print('##', d['title'])
-          for r in d['resources']:
-              ex={k:v for k,v in (r.get('extras') or {}).items() if any(s in k for s in ['parquet','geojson','pmtiles','conversion','parsing:finished','parsing:error'])}
-              print('  ', r['id'], r['format'], r.get('filesize'), ex)"
-          done
-          echo "=== 5. API tabulaire : filtre par boîte sur colonnes numériques (Maisons des illustres)"
-          curl -s -H "$O" -D h.txt "https://tabular-api.data.gouv.fr/api/resources/bd705a3d-e13e-4388-a0a1-100ed47cc85f/data/?latitude__greater=48.6&latitude__less=49.0&longitude__greater=2.0&longitude__less=2.6&page_size=5&columns=nom_mdi,latitude,longitude" | head -c 700; echo; grep -i "access-control" h.txt
-          echo "=== 6. profil Mérimée : types des colonnes coordonnées"
-          curl -s "https://tabular-api.data.gouv.fr/api/resources/3a52af4a-f9da-4dcc-8110-b07774dfb3bc/profile/" | python3 -c "import sys,json
-          p=json.load(sys.stdin)['profile']; c=p['columns']
-          for k in c:
-              if any(s in k.lower() for s in ['coord','lat','lon','insee','commune']): print(k, c[k].get('python_type'), c[k].get('format'))"
+          python3 - <<'PY'
+          from pmtiles.reader import Reader, MmapSource
+          import urllib.request, json, gzip
+          url = "https://hydra.s3.rbx.io.cloud.ovh.net/pmtiles/5ccd6238-4fb0-4b2c-b14a-581909489320.pmtiles"
+          data = urllib.request.urlopen(url).read(); open("m.pmtiles","wb").write(data)
+          with open("m.pmtiles","rb") as fh:
+              r = Reader(MmapSource(fh)); h = r.header(); m = r.metadata()
+              print("=== PMTiles Muséofile : zooms", h["min_zoom"], "-", h["max_zoom"], "; couches :", [(l["id"], list(l.get("fields",{}))[:12]) for l in m.get("vector_layers",[])])
+              import mapbox_vector_tile, math
+              z=10; lat,lng=48.78,2.316
+              x=int((lng+180)/360*2**z); y=int((1-math.log(math.tan(math.radians(lat))+1/math.cos(math.radians(lat)))/math.pi)/2*2**z)
+              t = r.get(z,x,y)
+              if t:
+                  try: t = gzip.decompress(t)
+                  except Exception: pass
+                  d = mapbox_vector_tile.decode(t)
+                  for k,v in d.items(): print("  tuile z10 :", k, len(v["features"]), "objets ; ex :", {kk: str(vv)[:40] for kk,vv in list(v["features"][0]["properties"].items())[:8]})
+          PY
