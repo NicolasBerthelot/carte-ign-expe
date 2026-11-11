@@ -7,11 +7,13 @@
 /**
  * Sources de données du volet « Mon territoire ».
  *
- * - Commune, département, communes voisines : Géoplateforme (ADMIN EXPRESS)
+ * - Commune et département : Géoplateforme (ADMIN EXPRESS)
  * - Météo : Open-Meteo (modèles Météo-France AROME/ARPEGE), sans clé
- * - Lieux remarquables : data.gouv.fr (API tabulaire) pour les jeux du ministère de la Culture
- *   (Mérimée, Muséofile, Maisons des illustres, Jardins remarquables) ; Géoplateforme (WMS vecteur
- *   IGNF_SITES-UNESCO, déjà utilisé par l'appli) pour l'UNESCO
+ * - Lieux remarquables : jeux du ministère de la Culture sur data.gouv.fr (Mérimée, Muséofile,
+ *   Maisons des illustres, Jardins remarquables). La recherche se fait par distance au point, sur
+ *   les conversions Parquet publiées par data.gouv.fr (seules les colonnes utiles sont lues) ;
+ *   le détail des monuments vient de l'API tabulaire. Géoplateforme (WMS vecteur IGNF_SITES-UNESCO,
+ *   déjà utilisé par l'appli) pour l'UNESCO
  * - Sorties : Géoplateforme (PMTiles DATATOURISME.FMA et HIKING.GEOTREK, déjà utilisés par l'appli)
  */
 import { PMTiles } from "pmtiles";
@@ -19,6 +21,7 @@ import { VectorTile } from "@mapbox/vector-tile";
 import { PbfReader } from "pbf";
 
 import requestUtils from "../utils/request-utils";
+import { getParquetTable, nearestRows } from "./parquet-source";
 
 const TABULAR_API = "https://tabular-api.data.gouv.fr/api/resources";
 
@@ -50,13 +53,6 @@ export function museofileImageUrl(identifiant) {
 const PMTILES = {
   events: "https://data.geopf.fr/chunk/telechargement/download/DATATOURISME.FMA/archive/data.pmtiles",
   treks: "https://data.geopf.fr/chunk/telechargement/download/HIKING.GEOTREK/archive/data.pmtiles",
-};
-
-/** Communes à arrondissements : Mérimée référence les arrondissements municipaux */
-const MUNICIPAL_ARRONDISSEMENTS = {
-  "75056": Array.from({ length: 20 }, (_, i) => String(75101 + i)),
-  "69123": Array.from({ length: 9 }, (_, i) => String(69381 + i)),
-  "13055": Array.from({ length: 16 }, (_, i) => String(13201 + i)),
 };
 
 export const PLACE_THEMES = {
@@ -317,24 +313,6 @@ export async function getCommune(lat, lng) {
 }
 
 /**
- * Communes dans un rayon (codes INSEE et codes postaux)
- */
-export async function getNearbyCommunes(lat, lng, radiusKm = 6) {
-  const rows = await requestUtils.requestWfs(lat, lng, "LIMITES_ADMINISTRATIVES_EXPRESS.LATEST:commune",
-    ["code_insee", "code_postal"], radiusKm, "geometrie");
-  const inseeCodes = new Set();
-  const postcodes = new Set();
-  rows.forEach(([insee, cp]) => {
-    if (insee) {
-      inseeCodes.add(insee);
-      (MUNICIPAL_ARRONDISSEMENTS[insee] || []).forEach((code) => inseeCodes.add(code));
-    }
-    splitPostcodes(cp).forEach((code) => postcodes.add(code));
-  });
-  return { inseeCodes: [...inseeCodes], postcodes: [...postcodes] };
-}
-
-/**
  * Météo actuelle (Open-Meteo)
  */
 export async function getWeather(lat, lng, signal) {
@@ -481,22 +459,52 @@ async function getUnesco(lat, lng, radiusKm, signal) {
   return [...byName.values()];
 }
 
+/** Rayon et nombre maximal de lieux par jeu de données */
+export const PLACES_RADIUS_KM = 20;
+const PLACES_LIMITS = { monument: 60, musee: 30, illustres: 20, jardin: 20 };
+
+const MERIMEE_INDEX_COLUMNS = ["Reference", "coordonnees_au_format_WGS84"];
+const MUSEOFILE_COLUMNS = [
+  "Identifiant", "Nom_officiel", "Adresse", "Code_postal", "Ville", "URL", "Telephone", "Domaine_thematique",
+  "Histoire", "Atout", "Artiste", "Personnage_phare", "Interet", "Protection_batiment", "Coordonnees",
+  "Date_arrete_attribution_appellation",
+];
+const numericCoords = (row) => ({ lat: Number(row.latitude), lng: Number(row.longitude) });
+
+/**
+ * Monuments historiques les plus proches : index Parquet (référence + coordonnées, ~1 Mo),
+ * puis détail des notices retenues via l'API tabulaire
+ */
+async function getMonuments(lat, lng, signal) {
+  const table = await getParquetTable(RESOURCES.merimee, MERIMEE_INDEX_COLUMNS,
+    (row) => parseLatLon(row.coordonnees_au_format_WGS84));
+  const hits = nearestRows(table, lat, lng, PLACES_RADIUS_KM, PLACES_LIMITS.monument);
+  if (!hits.length) {
+    return [];
+  }
+  const refs = hits.map((h) => h.row.Reference);
+  const rows = await tabular(RESOURCES.merimee, { "Reference__in": refs.join(",") }, MERIMEE_COLUMNS, signal, refs.length);
+  return rows.map(merimeeToPlace);
+}
+
+async function getNearest(resource, columns, getCoords, toPlace, limit, lat, lng) {
+  const table = await getParquetTable(resource, columns, getCoords);
+  return nearestRows(table, lat, lng, PLACES_RADIUS_KM, limit).map((h) => toPlace(h.row));
+}
+
 /**
  * Lieux remarquables autour d'un point, triés par distance
  * @returns {Promise<{places: Array, errors: Array<string>}>}
  */
-export async function getPlaces(lat, lng, communes, signal) {
-  const insee = communes.inseeCodes.join(",");
-  const postcodes = communes.postcodes.join(",");
+export async function getPlaces(lat, lng, signal) {
   const jobs = [
-    insee ? tabular(RESOURCES.merimee, { "COG_Insee_lors_de_la_protection__in": insee }, MERIMEE_COLUMNS, signal)
-      .then((rows) => rows.map(merimeeToPlace)) : Promise.resolve([]),
-    postcodes ? tabular(RESOURCES.museofile, { "Code_postal__in": postcodes }, null, signal)
-      .then((rows) => rows.map(museofileToPlace)) : Promise.resolve([]),
-    insee ? tabular(RESOURCES.illustres, { "code_commune__in": insee }, null, signal)
-      .then((rows) => rows.map((r) => labelToPlace("illustres", r))) : Promise.resolve([]),
-    insee ? tabular(RESOURCES.jardins, { "code_commune__in": insee }, null, signal)
-      .then((rows) => rows.map((r) => labelToPlace("jardin", r))) : Promise.resolve([]),
+    getMonuments(lat, lng, signal),
+    getNearest(RESOURCES.museofile, MUSEOFILE_COLUMNS, (row) => parseLatLon(row.Coordonnees),
+      museofileToPlace, PLACES_LIMITS.musee, lat, lng),
+    getNearest(RESOURCES.illustres, undefined, numericCoords,
+      (row) => labelToPlace("illustres", row), PLACES_LIMITS.illustres, lat, lng),
+    getNearest(RESOURCES.jardins, undefined, numericCoords,
+      (row) => labelToPlace("jardin", row), PLACES_LIMITS.jardin, lat, lng),
     getUnesco(lat, lng, 15, signal),
   ];
   const labels = ["Monuments historiques", "Musées", "Maisons des illustres", "Jardins remarquables", "UNESCO"];
@@ -707,7 +715,6 @@ export async function getOutings(lat, lng, radiusKm = 15) {
 
 export default {
   getCommune,
-  getNearbyCommunes,
   getWeather,
   getPlaces,
   getOutings,

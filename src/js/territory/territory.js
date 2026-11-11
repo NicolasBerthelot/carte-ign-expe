@@ -200,8 +200,7 @@ class Territory {
       .catch((err) => { if (err.name !== "AbortError") { console.warn("[territoire] météo :", err); } this.weather = null; })
       .finally(() => isCurrent() && this.#renderIfHome());
 
-    TerritoryData.getNearbyCommunes(lat, lng, 6)
-      .then((communes) => TerritoryData.getPlaces(lat, lng, communes, signal))
+    TerritoryData.getPlaces(lat, lng, signal)
       .then(({ places, errors }) => { this.places = places; this.placesErrors = errors; })
       .catch((err) => { console.warn("[territoire] lieux :", err); this.places = []; this.placesErrors = ["Lieux remarquables"]; })
       .finally(() => isCurrent() && this.#render());
