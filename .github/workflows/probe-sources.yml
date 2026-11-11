@@ -1,0 +1,53 @@
+name: Probe sources (temporaire)
+on:
+  push:
+    branches: ["probe/sources"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sondes
+        shell: bash
+        run: |
+          set +e
+          O="Origin: https://nicolasberthelot.github.io"
+          echo "=== 1. WMS-v capabilities monument_historique"
+          curl -s "https://data.geopf.fr/wms-v/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities" > caps.xml
+          python3 - <<'PY'
+          import re
+          x=open("caps.xml",encoding="utf-8",errors="replace").read()
+          for name in ["monument_historique","monument_naturel_site","POI.MUSEUM","Monuments_nationaux_France"]:
+              i=x.find("<Name>"+name+"</Name>")
+              if i<0: print(name,"absent"); continue
+              blk=x[max(0,i-200):i+3000]
+              blk=blk[:blk.find("</Layer>")]
+              print("---",name); print(re.sub(r"\s+"," ",blk)[:1500])
+          PY
+          echo "=== 2. GFI monument_historique (Bourg-la-Reine, plusieurs échelles)"
+          for W in 101 1000 3000; do
+            for B in 0.02 0.04; do
+              BBOX="$(python3 -c "print(','.join(str(v) for v in [48.78-$B,2.316-$B*1.5,48.78+$B,2.316+$B*1.5]))")"
+              R=$(curl -s -H "$O" "https://data.geopf.fr/wms-v/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=monument_historique&QUERY_LAYERS=monument_historique&STYLES=&CRS=EPSG:4326&BBOX=$BBOX&WIDTH=$W&HEIGHT=$W&I=$((W/2))&J=$((W/2))&INFO_FORMAT=application/json&FEATURE_COUNT=200&BUFFER=$((W/2+10))")
+              echo "W=$W demi-cote=$B : $(echo "$R" | python3 -c "import sys,json
+          try:
+              j=json.load(sys.stdin); f=j.get('features',[]); print(len(f),'objets', (list(f[0]['properties'].items())[:14] if f else ''), (f[0]['geometry'] if f else ''))
+          except Exception as e: print('ERR', str(e)[:80])" 2>&1 | cut -c1-900)"
+            done
+          done
+          echo "=== 3. WFS : couches patrimoine"
+          curl -s "https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetCapabilities" | grep -oiE "<(wfs:)?Name>[^<]*(monument|merimee|mérimée|patrim|culture|museo|musee|illustre|jardin|protege)[^<]*</(wfs:)?Name>" | head -20
+          echo "=== 4. data.gouv : conversions parquet / geojson"
+          for DS in 5af120e5b595087cfabcde81 5d12ee8206e3e762c0c89a4c 5c90a51306e3e731ee4d34ca 5ee2fe1cba88d5c5a1179ef2; do
+            curl -s "https://www.data.gouv.fr/api/1/datasets/$DS/" | python3 -c "import sys,json
+          d=json.load(sys.stdin); print('##', d['title'])
+          for r in d['resources']:
+              ex={k:v for k,v in (r.get('extras') or {}).items() if any(s in k for s in ['parquet','geojson','pmtiles','conversion','parsing:finished','parsing:error'])}
+              print('  ', r['id'], r['format'], r.get('filesize'), ex)"
+          done
+          echo "=== 5. API tabulaire : filtre par boîte sur colonnes numériques (Maisons des illustres)"
+          curl -s -H "$O" -D h.txt "https://tabular-api.data.gouv.fr/api/resources/bd705a3d-e13e-4388-a0a1-100ed47cc85f/data/?latitude__greater=48.6&latitude__less=49.0&longitude__greater=2.0&longitude__less=2.6&page_size=5&columns=nom_mdi,latitude,longitude" | head -c 700; echo; grep -i "access-control" h.txt
+          echo "=== 6. profil Mérimée : types des colonnes coordonnées"
+          curl -s "https://tabular-api.data.gouv.fr/api/resources/3a52af4a-f9da-4dcc-8110-b07774dfb3bc/profile/" | python3 -c "import sys,json
+          p=json.load(sys.stdin)['profile']; c=p['columns']
+          for k in c:
+              if any(s in k.lower() for s in ['coord','lat','lon','insee','commune']): print(k, c[k].get('python_type'), c[k].get('format'))"
