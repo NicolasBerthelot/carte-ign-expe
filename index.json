@@ -1,0 +1,441 @@
+{
+ "generated": "2026-11-23T15:57:06+00:00",
+ "source": "https://ministere-culture.s3.sbg.io.cloud.ovh.net/POP/memoire_palissy_merimee.csv",
+ "dataset": "https://www.data.gouv.fr/datasets/68e8bbfa16a41347e37c821c/",
+ "imageBaseUrl": "https://popcorn-prd-perf-assets.s3.gra.io.cloud.ovh.net/memoire/",
+ "columns": {
+  "refs": "References_Palissy_Merimee_lien_notice_en_cours",
+  "image": "Lien_vers_l_image",
+  "dept": "Departement",
+  "rank": "Rang_d_affichage_de_l_image_dans_les_bases_Palissy_et_Merimee",
+  "author": "Auteur_de_la_photographie",
+  "photographer": "Photographe",
+  "copyright": "Copyright",
+  "date": "Date_de_la_prise_de_vue"
+ },
+ "stats": {
+  "rows": 1309042,
+  "kept": 1249921,
+  "no_ref": 140,
+  "no_image": 56687,
+  "not_image": 123,
+  "no_dept": 2171,
+  "dept_from_ref": 222
+ },
+ "notices": 248051,
+ "photos": 609384,
+ "departements": {
+  "00": {
+   "notices": 4,
+   "size": 1790
+  },
+  "01": {
+   "notices": 2768,
+   "size": 321013
+  },
+  "02": {
+   "notices": 1723,
+   "size": 261946
+  },
+  "03": {
+   "notices": 1337,
+   "size": 244792
+  },
+  "04": {
+   "notices": 1278,
+   "size": 144821
+  },
+  "05": {
+   "notices": 1113,
+   "size": 162876
+  },
+  "06": {
+   "notices": 3720,
+   "size": 348945
+  },
+  "07": {
+   "notices": 1673,
+   "size": 366767
+  },
+  "08": {
+   "notices": 1586,
+   "size": 178609
+  },
+  "09": {
+   "notices": 4522,
+   "size": 605741
+  },
+  "10": {
+   "notices": 9094,
+   "size": 819151
+  },
+  "11": {
+   "notices": 3010,
+   "size": 393274
+  },
+  "12": {
+   "notices": 2039,
+   "size": 314783
+  },
+  "13": {
+   "notices": 2043,
+   "size": 263712
+  },
+  "14": {
+   "notices": 4400,
+   "size": 619074
+  },
+  "15": {
+   "notices": 1495,
+   "size": 238529
+  },
+  "16": {
+   "notices": 1366,
+   "size": 203689
+  },
+  "17": {
+   "notices": 2768,
+   "size": 414791
+  },
+  "18": {
+   "notices": 1182,
+   "size": 189076
+  },
+  "19": {
+   "notices": 1798,
+   "size": 352285
+  },
+  "21": {
+   "notices": 6504,
+   "size": 855433
+  },
+  "22": {
+   "notices": 5533,
+   "size": 915631
+  },
+  "23": {
+   "notices": 1349,
+   "size": 298099
+  },
+  "24": {
+   "notices": 2427,
+   "size": 285828
+  },
+  "25": {
+   "notices": 2906,
+   "size": 449837
+  },
+  "26": {
+   "notices": 2030,
+   "size": 215077
+  },
+  "27": {
+   "notices": 2776,
+   "size": 367333
+  },
+  "28": {
+   "notices": 1149,
+   "size": 201428
+  },
+  "29": {
+   "notices": 5912,
+   "size": 710611
+  },
+  "2A": {
+   "notices": 948,
+   "size": 149665
+  },
+  "2B": {
+   "notices": 1254,
+   "size": 175142
+  },
+  "30": {
+   "notices": 2017,
+   "size": 291094
+  },
+  "31": {
+   "notices": 1892,
+   "size": 298377
+  },
+  "32": {
+   "notices": 903,
+   "size": 135527
+  },
+  "33": {
+   "notices": 2420,
+   "size": 300209
+  },
+  "34": {
+   "notices": 2580,
+   "size": 381540
+  },
+  "35": {
+   "notices": 2809,
+   "size": 462126
+  },
+  "36": {
+   "notices": 5294,
+   "size": 454749
+  },
+  "37": {
+   "notices": 2622,
+   "size": 491001
+  },
+  "38": {
+   "notices": 988,
+   "size": 139090
+  },
+  "39": {
+   "notices": 2770,
+   "size": 363610
+  },
+  "40": {
+   "notices": 760,
+   "size": 104645
+  },
+  "41": {
+   "notices": 3424,
+   "size": 408918
+  },
+  "42": {
+   "notices": 1951,
+   "size": 252245
+  },
+  "43": {
+   "notices": 4041,
+   "size": 532559
+  },
+  "44": {
+   "notices": 1647,
+   "size": 222056
+  },
+  "45": {
+   "notices": 2494,
+   "size": 300169
+  },
+  "46": {
+   "notices": 912,
+   "size": 142655
+  },
+  "47": {
+   "notices": 1601,
+   "size": 236486
+  },
+  "48": {
+   "notices": 502,
+   "size": 107985
+  },
+  "49": {
+   "notices": 4987,
+   "size": 522098
+  },
+  "50": {
+   "notices": 9544,
+   "size": 683179
+  },
+  "51": {
+   "notices": 2562,
+   "size": 338728
+  },
+  "52": {
+   "notices": 2024,
+   "size": 258119
+  },
+  "53": {
+   "notices": 1080,
+   "size": 129466
+  },
+  "54": {
+   "notices": 2129,
+   "size": 285024
+  },
+  "55": {
+   "notices": 2472,
+   "size": 352120
+  },
+  "56": {
+   "notices": 7012,
+   "size": 708963
+  },
+  "57": {
+   "notices": 1267,
+   "size": 192176
+  },
+  "58": {
+   "notices": 2465,
+   "size": 367511
+  },
+  "59": {
+   "notices": 3867,
+   "size": 472539
+  },
+  "60": {
+   "notices": 3684,
+   "size": 534924
+  },
+  "61": {
+   "notices": 2509,
+   "size": 335609
+  },
+  "62": {
+   "notices": 6522,
+   "size": 568595
+  },
+  "63": {
+   "notices": 3406,
+   "size": 564413
+  },
+  "64": {
+   "notices": 2268,
+   "size": 251800
+  },
+  "65": {
+   "notices": 1156,
+   "size": 162137
+  },
+  "66": {
+   "notices": 2239,
+   "size": 366371
+  },
+  "67": {
+   "notices": 1629,
+   "size": 301472
+  },
+  "68": {
+   "notices": 1618,
+   "size": 239234
+  },
+  "69": {
+   "notices": 2862,
+   "size": 290024
+  },
+  "70": {
+   "notices": 1030,
+   "size": 148230
+  },
+  "71": {
+   "notices": 2329,
+   "size": 371172
+  },
+  "72": {
+   "notices": 3398,
+   "size": 405090
+  },
+  "73": {
+   "notices": 2077,
+   "size": 170725
+  },
+  "74": {
+   "notices": 1554,
+   "size": 261202
+  },
+  "75": {
+   "notices": 4858,
+   "size": 724998
+  },
+  "76": {
+   "notices": 4867,
+   "size": 439772
+  },
+  "77": {
+   "notices": 4549,
+   "size": 443247
+  },
+  "78": {
+   "notices": 1989,
+   "size": 268859
+  },
+  "79": {
+   "notices": 864,
+   "size": 185861
+  },
+  "80": {
+   "notices": 3276,
+   "size": 410863
+  },
+  "81": {
+   "notices": 1052,
+   "size": 159378
+  },
+  "82": {
+   "notices": 1094,
+   "size": 161738
+  },
+  "83": {
+   "notices": 2987,
+   "size": 314628
+  },
+  "84": {
+   "notices": 1063,
+   "size": 189602
+  },
+  "85": {
+   "notices": 2401,
+   "size": 262703
+  },
+  "86": {
+   "notices": 1710,
+   "size": 316277
+  },
+  "87": {
+   "notices": 2323,
+   "size": 461334
+  },
+  "88": {
+   "notices": 2066,
+   "size": 253072
+  },
+  "89": {
+   "notices": 5564,
+   "size": 740294
+  },
+  "90": {
+   "notices": 322,
+   "size": 42388
+  },
+  "91": {
+   "notices": 2439,
+   "size": 218122
+  },
+  "92": {
+   "notices": 474,
+   "size": 78748
+  },
+  "93": {
+   "notices": 731,
+   "size": 114043
+  },
+  "94": {
+   "notices": 471,
+   "size": 70997
+  },
+  "95": {
+   "notices": 1309,
+   "size": 220978
+  },
+  "971": {
+   "notices": 128,
+   "size": 14214
+  },
+  "972": {
+   "notices": 154,
+   "size": 35494
+  },
+  "973": {
+   "notices": 95,
+   "size": 15820
+  },
+  "974": {
+   "notices": 195,
+   "size": 34614
+  },
+  "975": {
+   "notices": 30,
+   "size": 2697
+  },
+  "976": {
+   "notices": 16,
+   "size": 1594
+  }
+ }
+}
