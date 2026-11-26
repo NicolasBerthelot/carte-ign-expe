@@ -217,7 +217,24 @@ function addListeners() {
     });
   }
 
-  const handleresize = () => {
+  // Dernière taille de fenêtre traitée, pour ignorer l'apparition de la barre d'adresse (voir handleresize)
+  let lastViewport = { width: window.innerWidth, height: window.innerHeight };
+
+  const handleresize = (evt) => {
+    // Dans un navigateur mobile (version web), la barre d'adresse réapparaît dès qu'on remonte
+    // un peu dans la page : la fenêtre change de hauteur de quelques dizaines de pixels et
+    // l'événement « resize » ramenait le panneau à sa position d'ancrage, donc tout en haut de
+    // son contenu. On ignore ces petites variations de hauteur à largeur constante (le clavier,
+    // une rotation ou un vrai redimensionnement restent traités).
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const onlyToolbar = evt?.type === "resize"
+      && viewport.width === lastViewport.width
+      && Math.abs(viewport.height - lastViewport.height) < 150
+      && !keyboardWillHide;
+    lastViewport = viewport;
+    if (onlyToolbar && !Capacitor.isNativePlatform()) {
+      return;
+    }
     ScreenOrientation.orientation().then((orientation) => {
       if (orientation.type === "landscape-secondary") {
         document.documentElement.style.setProperty("--safe-area-inset-left", "0px");
