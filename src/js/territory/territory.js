@@ -514,13 +514,13 @@ class Territory {
     if (this.geology?.rock) {
       cards.push(`<button type="button" class="territoryCard territoryTextCard" data-action="open-geology">
         <span class="territoryCardTitleRow">${icon("gem", 20)}<span class="territoryFactTitle">Sous vos pieds</span></span>
-        <p class="territoryMuted territoryText">${esc(this.geology.rock)}${this.geology.type ? ` · ${esc(this.geology.type.toLowerCase())}` : ""}</p>
+        <span class="territoryMuted territoryText">${esc(this.geology.rock)}${this.geology.type ? ` · ${esc(this.geology.type.toLowerCase())}` : ""}</span>
       </button>`);
     }
     if (this.water?.river?.name) {
       cards.push(`<button type="button" class="territoryCard territoryTextCard" data-action="open-water">
         <span class="territoryCardTitleRow">${icon("droplet", 20)}<span class="territoryFactTitle">La pluie tombée ici</span></span>
-        <p class="territoryMuted territoryText">rejoint ${esc(this.water.river.name)}, puis la mer. Suivez son voyage.</p>
+        <span class="territoryMuted territoryText">rejoint ${esc(this.water.river.name)}, puis la mer. Suivez son voyage.</span>
       </button>`);
     }
     const rivers = (data["BDTOPO_V3:cours_d_eau"] || []).map((r) => r[0]).filter(Boolean).slice(0, 3);
