@@ -9,6 +9,15 @@ vi.mock("../../src/js/utils/config-utils", async () => ({
   },
 }));
 
+// Les règles GFI viennent du fichier local : sinon, en ligne (CI), config-utils charge la version
+// publiée par l'IGN (sans la règle AOC) et touche au DOM de l'appli (#newsfeed) dès l'import.
+vi.mock("../../src/js/utils/config-utils", async () => ({
+  config: {
+    gfiRulesProps: (await import("../../config/gfi-rules.json")).default,
+    inseeCommWiki: {},
+  },
+}));
+
 import gfiRules from "../../src/js/map-interactivity/gfi-rules";
 import layersConfig from "../../config/layers-config.json";
 

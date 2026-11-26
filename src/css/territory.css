@@ -1144,3 +1144,130 @@
 .territorySeasonCaption {
   margin: -8px 4px 14px;
 }
+
+/* Découverte : explorer le territoire */
+#territoryWindow .territoryExploreCard {
+  width: 176px;
+  padding: 14px;
+  gap: 4px;
+}
+
+.territoryExploreIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--light-green);
+  color: var(--territory-accent);
+}
+
+/* Saveurs du terroir (INAO) */
+#territoryWindow .territoryProductCard {
+  width: 160px;
+  padding: 14px;
+  gap: 6px;
+}
+
+#territoryWindow .territoryProductCard .territoryBadge {
+  margin-top: 0;
+}
+
+.territorySign {
+  flex-shrink: 0;
+}
+
+.territorySign-AOP {
+  background: #fde8d0;
+  color: #8a4a00;
+}
+
+.territorySign-IGP {
+  background: #dcebfa;
+  color: #1d4f80;
+}
+
+/* Graphiques (population, panorama) */
+.territoryChart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 8px 0 4px;
+  overflow: visible;
+}
+
+.territoryChartArea {
+  fill: var(--light-green);
+}
+
+.territoryChartLine {
+  fill: none;
+  stroke: var(--territory-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.territoryChartPeak {
+  fill: var(--territory-accent);
+}
+
+.territoryChartAxis {
+  stroke: var(--grey);
+  stroke-width: 1;
+}
+
+.territoryChartText {
+  fill: var(--territory-muted);
+  font-family: "Open Sans";
+  font-size: 10px;
+}
+
+.territoryChartLabel {
+  fill: var(--territory-text);
+  font-family: "Open Sans Semibold";
+}
+
+.territoryPanorama {
+  padding: 8px 0;
+  border-radius: 8px;
+  background: linear-gradient(to bottom, #e6f1fb, #fff);
+}
+
+.territoryPanoramaPeak {
+  fill: var(--territory-accent);
+  opacity: 0.85;
+}
+
+.territoryRowIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--territory-accent);
+  background: var(--light-green);
+}
+
+#territoryWindow a.territoryRow {
+  color: inherit;
+  text-decoration: none;
+}
+
+.territoryCompass .territoryIcon {
+  /* l'icône « navigation » pointe vers le nord-est (45°) */
+  transform: rotate(calc(var(--bearing) - 45deg));
+}
+
+/* Voyage de la goutte d'eau */
+.territoryWaterTrip {
+  position: relative;
+  margin-top: 8px;
+}
+
+.territoryWaterStep .territoryTimelineDot {
+  border-color: #2b7bb9;
+}
+
+.territoryWaterSea .territoryTimelineDot {
+  background: #2b7bb9;
+}

@@ -10,9 +10,9 @@
  * - Commune et département : Géoplateforme (ADMIN EXPRESS)
  * - Météo : Open-Meteo (modèles Météo-France AROME/ARPEGE), sans clé
  * - Lieux remarquables : jeux du ministère de la Culture sur data.gouv.fr (Mérimée, Muséofile,
- *   Maisons des illustres, Jardins remarquables). La recherche se fait par distance au point, sur
+ *   Maisons des illustres, Jardins remarquables, Architecture contemporaine remarquable). La recherche se fait par distance au point, sur
  *   les conversions Parquet publiées par data.gouv.fr (seules les colonnes utiles sont lues) ;
- *   le détail des monuments vient de l'API tabulaire. Géoplateforme (WMS vecteur IGNF_SITES-UNESCO,
+ *   le détail des monuments et des édifices labellisés vient de l'API tabulaire. Géoplateforme (WMS vecteur IGNF_SITES-UNESCO,
  *   déjà utilisé par l'appli) pour l'UNESCO
  * - Sorties : Géoplateforme (PMTiles DATATOURISME.FMA et HIKING.GEOTREK, déjà utilisés par l'appli)
  */
@@ -31,6 +31,7 @@ const RESOURCES = {
   museofile: "5ccd6238-4fb0-4b2c-b14a-581909489320",
   illustres: "bd705a3d-e13e-4388-a0a1-100ed47cc85f",
   jardins: "49a648e5-ef47-41fe-aa18-9323a811c2c7",
+  acr: "80b6ac20-41b1-400c-8860-af201ff7dcb6",
 };
 
 /** Index des photos Mémoire par département (workflow « Mérimée photos », publié avec GitHub Pages) */
@@ -61,6 +62,7 @@ export const PLACE_THEMES = {
   illustres: { label: "Maison des illustres", group: "Maisons des illustres" },
   musee: { label: "Musée de France", group: "Musées" },
   jardin: { label: "Jardin remarquable", group: "Jardins remarquables" },
+  acr: { label: "Architecture contemporaine", group: "Architecture contemporaine remarquable" },
 };
 
 /* -------------------------------------------------------------------------- */
@@ -414,6 +416,33 @@ function labelToPlace(theme, row) {
   };
 }
 
+const ACR_COLUMNS = [
+  "Reference_de_la_notice", "Titre_courant", "Commune_forme_editoriale", "Coordonnees", "Adresse_forme_editoriale",
+  "Denominations", "Datation_de_l_edifice", "Auteur_de_l_edifice", "Date_de_Label", "Description_historique",
+  "Description_de_l_edifice", "Numero_departement", "Siecle_de_la_campagne_principale_de_construction",
+];
+
+/** Édifice labellisé « Architecture contemporaine remarquable » (ministère de la Culture) */
+export function acrToPlace(row) {
+  const coords = parseLatLon(row.Coordonnees);
+  if (!coords) {
+    return null;
+  }
+  const denominations = String(row.Denominations || "").split(/\s*;\s*/).filter(Boolean);
+  return {
+    id: `acr-${row.Reference_de_la_notice}`,
+    theme: "acr",
+    name: String(row.Titre_courant || capitalize(denominations[denominations.length - 1]) || "Édifice labellisé").trim(),
+    category: capitalize(denominations[denominations.length - 1] || ""),
+    commune: row.Commune_forme_editoriale,
+    address: row.Adresse_forme_editoriale,
+    departement: row.Numero_departement,
+    ...coords,
+    source: "Ministère de la Culture (label Architecture contemporaine remarquable)",
+    raw: row,
+  };
+}
+
 /**
  * Requête WMS GetFeatureInfo couvrant tout un carré de ±radiusKm autour du point
  * (BUFFER couvre l'image entière) : permet de lister les objets des couches
@@ -461,7 +490,7 @@ async function getUnesco(lat, lng, radiusKm, signal) {
 
 /** Rayon et nombre maximal de lieux par jeu de données */
 export const PLACES_RADIUS_KM = 20;
-const PLACES_LIMITS = { monument: 60, musee: 30, illustres: 20, jardin: 20 };
+const PLACES_LIMITS = { monument: 60, musee: 30, illustres: 20, jardin: 20, acr: 20 };
 
 const MERIMEE_INDEX_COLUMNS = ["Reference", "coordonnees_au_format_WGS84"];
 const MUSEOFILE_COLUMNS = [
@@ -487,6 +516,22 @@ async function getMonuments(lat, lng, signal) {
   return rows.map(merimeeToPlace);
 }
 
+/**
+ * Édifices labellisés Architecture contemporaine remarquable les plus proches : index Parquet
+ * (référence + coordonnées), puis détail via l'API tabulaire
+ */
+async function getAcr(lat, lng, signal) {
+  const table = await getParquetTable(RESOURCES.acr, ["Reference_de_la_notice", "Coordonnees"],
+    (row) => parseLatLon(row.Coordonnees));
+  const hits = nearestRows(table, lat, lng, PLACES_RADIUS_KM, PLACES_LIMITS.acr);
+  if (!hits.length) {
+    return [];
+  }
+  const refs = hits.map((h) => h.row.Reference_de_la_notice);
+  const rows = await tabular(RESOURCES.acr, { "Reference_de_la_notice__in": refs.join(",") }, ACR_COLUMNS, signal, refs.length);
+  return rows.map(acrToPlace);
+}
+
 async function getNearest(resource, columns, getCoords, toPlace, limit, lat, lng) {
   const table = await getParquetTable(resource, columns, getCoords);
   return nearestRows(table, lat, lng, PLACES_RADIUS_KM, limit).map((h) => toPlace(h.row));
@@ -506,8 +551,9 @@ export async function getPlaces(lat, lng, signal) {
     getNearest(RESOURCES.jardins, undefined, numericCoords,
       (row) => labelToPlace("jardin", row), PLACES_LIMITS.jardin, lat, lng),
     getUnesco(lat, lng, 15, signal),
+    getAcr(lat, lng, signal),
   ];
-  const labels = ["Monuments historiques", "Musées", "Maisons des illustres", "Jardins remarquables", "UNESCO"];
+  const labels = ["Monuments historiques", "Musées", "Maisons des illustres", "Jardins remarquables", "UNESCO", "Architecture contemporaine remarquable"];
   const results = await Promise.allSettled(jobs);
   const errors = [];
   const places = [];
@@ -564,7 +610,9 @@ function getPhotoIndex(departement, signal) {
  * Ajoute aux monuments historiques les photos de la base Mémoire (ministère de la Culture)
  */
 export async function attachMerimeePhotos(places, signal) {
-  const monuments = places.filter((p) => p.theme === "monument" && p.raw?.Reference);
+  // les notices ACR font aussi partie de la base Mérimée
+  const refOf = (p) => p.raw?.Reference || p.raw?.Reference_de_la_notice;
+  const monuments = places.filter((p) => ["monument", "acr"].includes(p.theme) && refOf(p));
   const departements = [...new Set(monuments.map((p) => String(p.departement || "").padStart(2, "0")).filter((d) => /^(\d{2}|2A|2B|97\d)$/.test(d)))];
   const indexes = {};
   await Promise.all(departements.map(async (dep) => {
@@ -579,7 +627,7 @@ export async function attachMerimeePhotos(places, signal) {
   }));
   monuments.forEach((place) => {
     const index = indexes[String(place.departement || "").padStart(2, "0")];
-    const photos = photosFromIndex(index, place.raw.Reference);
+    const photos = photosFromIndex(index, refOf(place));
     if (photos.length) {
       place.photos = photos;
       place.image = photos[0].url;
