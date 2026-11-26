@@ -192,6 +192,8 @@ class MapInteractivity {
     let featureHTML = null;
     if (features.length > 0 &&
       (features[0].source === "comparepoi"
+        // points du volet « Mon territoire » : ouverts par le volet lui-même
+        || features[0].source === "territory-highlight"
         || (features[0].source === "my-account-landmark" && features[0].properties.visible)
         || (features[0].source === "my-account-compare-landmark" && features[0].properties.visible)
       )){
