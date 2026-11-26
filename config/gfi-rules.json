@@ -261,6 +261,19 @@
     }
   },
 
+  "Aire-Parcellaire$WMTS": {
+    "0": {
+      "title": "Aire parcellaire AOC viticole",
+      "subtitle": "Délimitation parcellaire des AOC viticoles - Source : Institut national de l’origine et de la qualité (INAO)",
+      "bodyBefore": [
+        ["<b>Appellations revendicables sur cette parcelle :</b>", "~~appellations(denom)~~"]
+      ],
+      "bodyAfter": [
+        ["<p class=\"monumentsHistoriquesContent\">Données proposées à titre informatif. Les délimitations officielles sont consultables sur le <a href=\"https://www.inao.gouv.fr/portail-plans-delimitation\" target=\"_blank\">portail des plans de délimitation de l’INAO</a>.</p>"]
+      ]
+    }
+  },
+
   "LIMITES_ADMINISTRATIVES_EXPRESS.LATEST$WMTS": {
     "12": {
       "title": "@nom_officiel",
