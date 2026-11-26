@@ -101,13 +101,21 @@ const click = async (selector) => {
 
 describe("volet Mon territoire : découverte", () => {
   let territory;
+  let mapHandlers;
   beforeEach(async () => {
     // une fenêtre neuve par test : chaque instance écoute les clics de sa propre fenêtre
     dom.$territoryWindow.remove();
     dom.$territoryWindow = document.createElement("div");
     dom.$territoryWindow.innerHTML = "<div class=\"territoryContent\"></div>";
     document.body.appendChild(dom.$territoryWindow);
-    const map = { getSource: () => null, getLayer: () => null, addSource() {}, addLayer() {}, removeLayer() {}, removeSource() {}, flyTo() {}, fitBounds() {}, getZoom: () => 12, once() {}, moveLayer() {} };
+    const sources = {};
+    mapHandlers = {};
+    const map = {
+      getSource: (id) => sources[id] || null, getLayer: () => null,
+      addSource(id) { sources[id] = { setData() {} }; }, addLayer() {}, removeLayer() {}, removeSource(id) { delete sources[id]; },
+      flyTo() {}, fitBounds() {}, getZoom: () => 12, once() {}, moveLayer() {},
+      on(type, layer, handler) { mapHandlers[`${type}:${layer}`] = handler; }, getCanvas: () => ({ style: {} }),
+    };
     territory = new Territory(map);
     territory.open({ lat: 47.09, lng: 5.49 });
     for (let i = 0; i < 5; i++) {
@@ -172,5 +180,20 @@ describe("volet Mon territoire : découverte", () => {
     await click("[data-action=open-marks]");
     await click("[data-action=open-mark]");
     expect(content().innerHTML).toContain("Où le trouver ?");
+  });
+
+  it("ouvre la fiche d'un repère touché sur la carte, avec le lien Géodésie de poche", async () => {
+    await click("[data-action=open-marks]");
+    expect(content().innerHTML).toContain("Géodésie de poche");
+    await click("[data-action=show-marks]");
+    const onPoint = mapHandlers["click:territory-highlight-points"];
+    expect(onPoint).toBeTypeOf("function");
+    onPoint({ features: [{ properties: { id: "A2" } }] });
+    expect(content().innerHTML).toContain("Repère de nivellement A2");
+    expect(content().innerHTML).toContain("Vous l'avez trouvé ?");
+    // un second point remplace la fiche au lieu de l'empiler
+    onPoint({ features: [{ properties: { id: "A1" } }] });
+    await click("[data-action=back]");
+    expect(content().innerHTML).toContain("2 repères à moins de 2 km");
   });
 });

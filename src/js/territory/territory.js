@@ -1864,7 +1864,7 @@ class Territory {
       type: "FeatureCollection",
       features: summits.flatMap((s) => [
         { type: "Feature", geometry: { type: "LineString", coordinates: [origin, [s.lng, s.lat]] }, properties: { name: s.name } },
-        { type: "Feature", geometry: { type: "Point", coordinates: [s.lng, s.lat] }, properties: { name: s.name } },
+        { type: "Feature", geometry: { type: "Point", coordinates: [s.lng, s.lat] }, properties: { name: s.name, id: s.id } },
       ]),
     });
     this.marker = new maplibregl.Marker({ color: "#26A581" }).setLngLat(origin).addTo(this.map);
@@ -1964,7 +1964,7 @@ class Territory {
           </button>`).join("")}
       </div>
       ${marks.length > shown ? `<button type="button" class="territoryMoreBtn" data-action="more" data-value="marks">Afficher ${Math.min(10, marks.length - shown)} repères de plus (${marks.length - shown} restants)</button>` : ""}
-      ${floods ? this.#linksHtml([["Tous les repères sur la plateforme nationale des repères de crues", "https://www.reperesdecrues.developpement-durable.gouv.fr/", "globe"]]) : ""}
+      ${floods ? this.#linksHtml([["Tous les repères sur la plateforme nationale des repères de crues", "https://www.reperesdecrues.developpement-durable.gouv.fr/", "globe"]]) : this.#geodesiePocheHtml()}
       <p class="territoryMuted territorySmall territorySources">Source : IGN, ${floods ? "repères de crues nivelés (Géoplateforme) ; la plateforme nationale en recense davantage" : "réseaux géodésique et de nivellement (Géoplateforme). Les repères signalés comme détruits ou non retrouvés ne sont pas affichés"}.</p>`;
   }
 
@@ -1989,9 +1989,18 @@ class Territory {
           <h3 class="territoryDetailH3">Où le trouver ?</h3>
           <ul class="territoryRefs">${[...mark.access, ...mark.placement].map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` : ""}
         ${this.#linksHtml([["Fiche signalétique officielle (PDF)", mark.pdf, "external"]])}
+        ${this.#geodesiePocheHtml(true)}
         <p class="territoryMuted territorySmall">Merci de ne pas déplacer ni dégrader les repères : ils restent utilisés par les géomètres.</p>
         <p class="territoryMuted territorySmall territorySources">Source : IGN, ${leveling ? "réseau de nivellement" : "réseau géodésique"} (point ${esc(mark.raw?.nom || "")}).${mark.photo ? " Photo : IGN." : ""}</p>
       </div>`;
+  }
+
+  /** Invitation à contribuer avec Géodésie de poche, l'appli de l'IGN pour les repères */
+  #geodesiePocheHtml(single = false) {
+    return `
+      <h3 class="territoryDetailH3">${single ? "Vous l'avez trouvé ?" : "Vous avez repéré une borne ?"}</h3>
+      <p class="territoryMuted territoryParagraph">Avec <strong>Géodésie de poche</strong>, l'application de l'IGN, confirmez qu'${single ? "il" : "elle"} est bien en place, signalez ${single ? "s'il" : "si elle"} est abîmé${single ? "" : "e"} ou déplacé${single ? "" : "e"}, et envoyez une photo : elle pourra devenir la photo officielle de la fiche.</p>
+      ${this.#linksHtml([["Contribuer avec Géodésie de poche", "https://geodesie.ign.fr/geodesie-de-poche", "users2"]])}`;
   }
 
   #floodDetailHtml(mark) {
@@ -2025,7 +2034,7 @@ class Territory {
     this.#ensureHighlightLayers();
     this.map.getSource(HIGHLIGHT_SOURCE).setData({
       type: "FeatureCollection",
-      features: items.map((m) => ({ type: "Feature", geometry: { type: "Point", coordinates: [m.lng, m.lat] }, properties: { name: m.name } })),
+      features: items.map((m) => ({ type: "Feature", geometry: { type: "Point", coordinates: [m.lng, m.lat] }, properties: { name: m.name, id: m.id } })),
     });
     const bounds = items.reduce((b, m) => b.extend([m.lng, m.lat]), new maplibregl.LngLatBounds([this.position.lng, this.position.lat], [this.position.lng, this.position.lat]));
     this.#reduceMenu();
@@ -2222,6 +2231,34 @@ class Territory {
         "circle-stroke-width": 2,
       },
     });
+    // les points affichés (lieux, repères, sommets) ouvrent leur fiche
+    const pointsLayer = `${HIGHLIGHT_SOURCE}-points`;
+    this.map.on("click", pointsLayer, (e) => this.#onMapPointClick(e));
+    this.map.on("mouseenter", pointsLayer, () => { this.map.getCanvas().style.cursor = "pointer"; });
+    this.map.on("mouseleave", pointsLayer, () => { this.map.getCanvas().style.cursor = ""; });
+  }
+
+  /** Clic sur un point affiché par le volet : ouvre la fiche correspondante */
+  #onMapPointClick(e) {
+    const id = e.features?.[0]?.properties?.id;
+    if (!id) {
+      return;
+    }
+    const summit = (this.panorama?.visible || []).find((s) => s.id === id);
+    if (summit) {
+      Toast.show({ text: `${summit.name} : ${formatDistance(summit.distance)} au ${compassLabel(summit.bearing)}`, duration: "long", position: "bottom" }).catch(() => {});
+      return;
+    }
+    const item = this.#findItem(id);
+    if (!item) {
+      return;
+    }
+    const name = (this.places || []).includes(item) ? "place" : (this.outings || []).includes(item) ? "outing" : "mark";
+    // on remplace la fiche ouverte par la nouvelle plutôt que de les empiler
+    if (["place", "outing", "mark"].includes(this.#currentView().name)) {
+      this.views.pop();
+    }
+    this.#push({ name, item });
   }
 
   #reduceMenu() {
@@ -2290,7 +2327,7 @@ class Territory {
     }
     this.map.getSource(HIGHLIGHT_SOURCE).setData({
       type: "FeatureCollection",
-      features: items.map((p) => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lng, p.lat] }, properties: { name: p.name } })),
+      features: items.map((p) => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lng, p.lat] }, properties: { name: p.name, id: p.id } })),
     });
     const bounds = items.reduce((b, p) => b.extend([p.lng, p.lat]), new maplibregl.LngLatBounds([items[0].lng, items[0].lat], [items[0].lng, items[0].lat]));
     bounds.extend([this.position.lng, this.position.lat]);
