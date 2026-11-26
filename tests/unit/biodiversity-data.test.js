@@ -149,3 +149,30 @@ describe("biodiversity-data — replis", () => {
     expect(photoFromOccurrences([{ key: 3, media: [{ identifier: "http://insecure/x.jpg" }] }])).toBeNull();
   });
 });
+
+describe("biodiversity-data — contribuer", () => {
+  it("prefills the iNaturalist observation form with species and place", async () => {
+    const { inaturalistObservationUrl } = await import("../../src/js/territory/biodiversity-data.js");
+    const url = new URL(inaturalistObservationUrl({ scientificName: "Bufo spinosus", lat: 44.5594, lng: 6.0786, place: "Gap" }));
+    expect(url.origin + url.pathname).toBe("https://www.inaturalist.org/observations/new");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      taxon_name: "Bufo spinosus",
+      latitude: "44.55940",
+      longitude: "6.07860",
+      location_is_exact: "false",
+      place_guess: "Gap",
+    });
+    expect(inaturalistObservationUrl({})).toBe("https://www.inaturalist.org/observations/new?");
+  });
+
+  it("offers the platforms suited to the species group", async () => {
+    const { contributeOptions } = await import("../../src/js/territory/biodiversity-data.js");
+    const ids = (opts) => contributeOptions(opts).map((o) => o.id);
+    expect(ids({ group: "oiseaux", scientificName: "Parus major", lat: 1, lng: 2 })).toEqual(["inaturalist", "inpn", "fauneFrance"]);
+    expect(ids({ group: "plantes" })).toEqual(["inaturalist", "plantnet", "inpn"]);
+    expect(ids({ group: "champignons" })).toEqual(["inaturalist", "inpn"]);
+    expect(ids({ lat: 1, lng: 2 })).toEqual(["inaturalist", "inpn", "fauneFrance"]);
+    expect(contributeOptions({ group: "oiseaux", scientificName: "Parus major", lat: 1, lng: 2 })[0].prefilled).toBe("Espèce et lieu déjà renseignés");
+    expect(contributeOptions({ lat: 1, lng: 2 })[0].prefilled).toBe("Lieu déjà renseigné");
+  });
+});

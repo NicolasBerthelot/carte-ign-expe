@@ -1273,3 +1273,40 @@
 .territoryWaterSea .territoryTimelineDot {
   background: #2b7bb9;
 }
+
+/* Signaler une observation (sciences participatives) */
+#territoryWindow .territoryActionPrimary {
+  border-color: var(--territory-accent);
+  background: var(--territory-accent);
+  color: #fff;
+}
+
+#territoryWindow .territoryContributeCta {
+  align-items: center;
+  margin: 20px 0 8px;
+}
+
+.territoryContributeCta > span:nth-child(2) {
+  flex: 1;
+}
+
+.territoryContributeSpecies {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+#territoryWindow a.territoryContributeOption {
+  color: inherit;
+  text-decoration: none;
+}
+
+.territoryContributeOptions {
+  margin: 12px 0 4px;
+}
+
+.territoryBadgeAccent {
+  background: var(--light-green);
+  color: var(--darker-green);
+}

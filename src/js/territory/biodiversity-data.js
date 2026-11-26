@@ -60,6 +60,71 @@ export const IUCN_STATUS = {
   Q3245245: { code: "DD", label: "Données insuffisantes" },
 };
 
+/**
+ * Plateformes de sciences participatives pour signaler une observation.
+ * Leurs données rejoignent le GBIF (directement ou via l'INPN), et donc à terme Cartes IGN.
+ */
+export const CONTRIBUTE_PLATFORMS = {
+  inaturalist: {
+    name: "iNaturalist",
+    desc: "Ajoutez une photo et la date : la communauté vous aide à confirmer l'espèce. Compte gratuit.",
+    url: "https://www.inaturalist.org/observations/new",
+  },
+  inpn: {
+    name: "INPN Espèces",
+    desc: "Application mobile du Muséum national d'Histoire naturelle : vos observations sont vérifiées par des experts.",
+    url: "https://inpn.mnhn.fr/accueil/participer/inpn-especes",
+  },
+  fauneFrance: {
+    name: "Faune-France",
+    desc: "Portail des associations naturalistes et de la LPO pour la faune : oiseaux, mammifères, reptiles, amphibiens, papillons, libellules…",
+    url: "https://www.faune-france.org/",
+  },
+  plantnet: {
+    name: "Pl@ntNet",
+    desc: "Photographiez la plante : Pl@ntNet propose une identification, puis vous partagez l'observation.",
+    url: "https://identify.plantnet.org/fr",
+  },
+};
+const FAUNA_GROUPS = ["oiseaux", "mammiferes", "herpeto", "insectes", "poissons"];
+
+/**
+ * Lien vers le formulaire d'observation d'iNaturalist, pré-rempli (paramètres d'URL acceptés par
+ * observations#new : taxon_name, latitude, longitude, place_guess, location_is_exact).
+ * Sans compte, iNaturalist demande de se connecter puis revient sur ce même lien.
+ */
+export function inaturalistObservationUrl({ scientificName, lat, lng, place } = {}) {
+  return apiUrl(CONTRIBUTE_PLATFORMS.inaturalist.url, {
+    taxon_name: scientificName || undefined,
+    latitude: Number.isFinite(lat) ? lat.toFixed(5) : undefined,
+    longitude: Number.isFinite(lng) ? lng.toFixed(5) : undefined,
+    location_is_exact: Number.isFinite(lat) ? false : undefined,
+    place_guess: place || undefined,
+  });
+}
+
+/**
+ * Plateformes proposées pour signaler une espèce (ou une observation quelconque si group est vide),
+ * de la plus adaptée à la plus générale
+ * @returns {Array<{id: string, name: string, desc: string, url: string, prefilled: string}>}
+ */
+export function contributeOptions({ group, scientificName, lat, lng, place } = {}) {
+  const options = [{
+    id: "inaturalist",
+    ...CONTRIBUTE_PLATFORMS.inaturalist,
+    url: inaturalistObservationUrl({ scientificName, lat, lng, place }),
+    prefilled: scientificName ? "Espèce et lieu déjà renseignés" : (Number.isFinite(lat) ? "Lieu déjà renseigné" : ""),
+  }];
+  if (group === "plantes") {
+    options.push({ id: "plantnet", ...CONTRIBUTE_PLATFORMS.plantnet, prefilled: "" });
+  }
+  options.push({ id: "inpn", ...CONTRIBUTE_PLATFORMS.inpn, prefilled: "" });
+  if (!group || FAUNA_GROUPS.includes(group)) {
+    options.push({ id: "fauneFrance", ...CONTRIBUTE_PLATFORMS.fauneFrance, prefilled: "" });
+  }
+  return options;
+}
+
 /** Plateformes où chacun peut partager ses observations */
 export const CONTRIBUTE_LINKS = [
   ["INPN Espèces (Muséum national d'Histoire naturelle)", "https://inpn.mnhn.fr/accueil/participer/inpn-especes"],

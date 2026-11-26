@@ -36,7 +36,7 @@ import TerritoryData, {
   toList,
 } from "./territory-data";
 import Biodiversity, {
-  CONTRIBUTE_LINKS,
+  contributeOptions,
   SPECIES_GROUPS,
   SPECIES_GROUP_ORDER,
   bamUrl,
@@ -375,6 +375,9 @@ class Territory {
       break;
     case "bioAbout":
       html = this.#bioAboutHtml();
+      break;
+    case "contribute":
+      html = this.#contributeHtml(view);
       break;
     case "story":
       html = this.#storyHtml();
@@ -1188,6 +1191,7 @@ class Territory {
       ${season}
       ${chips}
       ${sections}
+      ${groups ? this.#contributeCtaHtml("Une espèce manque à la liste ?", "Vous l'avez vue ici : signalez-la, elle pourra apparaître à son tour.") : ""}
       <p class="territoryMuted territorySmall territorySources">Observations : GBIF.org, partagées par les contributeurs de ${this.bio ? esc(this.#datasetCountText()) : "nombreuses sources"},
         ${esc(this.#radiusText())}, depuis ${this.bio?.since || ""}. Noms et photos : Wikidata, Wikimedia Commons.
         Même principe que <a class="territoryInlineLink" href="${esc(bamUrl(this.position.lat, this.position.lng, this.bio?.radius || 1000))}" target="_blank" rel="noopener">BAM — Biodiversité autour de moi</a> (parcs nationaux des Écrins et des Cévennes).</p>`;
@@ -1323,6 +1327,7 @@ class Territory {
         <p class="territoryMuted territorySmall territoryDetailKicker">${sci ? `<em class="territorySci">${esc(sci)}</em> · ` : ""}<strong>${esc(group.one)}</strong></p>
         <div class="territoryActions">
           <button type="button" class="territoryActionPill" data-action="species-map">${icon("map", 18)}Où l'observer ?</button>
+          <button type="button" class="territoryActionPill territoryActionPrimary" data-action="contribute">${icon("users2", 18)}Je l'ai vue</button>
         </div>
         ${stats}
         ${loading}
@@ -1335,9 +1340,7 @@ class Territory {
     s.taxref ? ["Fiche de l'espèce sur l'INPN", `https://inpn.mnhn.fr/espece/cd_nom/${encodeURIComponent(s.taxref)}`] : ["", null],
     ["Toutes les observations sur le GBIF", `https://www.gbif.org/species/${encodeURIComponent(s.key)}`],
   ])}
-        <h3 class="territoryDetailH3">Vous l'avez vue ?</h3>
-        <p class="territoryMuted territoryText">Partagez votre observation : elle enrichira la connaissance de la biodiversité d'ici et, une fois publiée sur le GBIF, pourra à son tour apparaître dans Cartes IGN.</p>
-        ${this.#linksHtml(CONTRIBUTE_LINKS.slice(0, 2).map(([label, url]) => [label, url, "users2"]))}
+        ${this.#contributeCtaHtml("Vous avez vu cette espèce ici ?", "Signalez votre observation : espèce et lieu déjà renseignés.")}
         <p class="territoryMuted territorySmall territorySources">Observations : GBIF.org, données partagées par leurs contributeurs. Noms, statut et photo : Wikidata, Wikimedia Commons.</p>
       </div>`;
   }
@@ -1368,13 +1371,76 @@ class Territory {
         </ul>
         <h3 class="territoryDetailH3">Vous aussi, contribuez</h3>
         <p class="territoryMuted territoryParagraph">Une photo, un lieu, une date : chaque observation partagée enrichit la connaissance de la biodiversité de votre territoire et profite à tous.</p>
-        ${this.#linksHtml(CONTRIBUTE_LINKS.map(([label, url]) => [label, url, "users2"]))}
+        ${this.#contributeCtaHtml("Signaler une observation", "Choisissez la plateforme qui vous convient : le lieu est déjà renseigné.")}
         <h3 class="territoryDetailH3">Aller plus loin</h3>
         ${this.#linksHtml([
     ["Explorer avec BAM — Biodiversité autour de moi", bamUrl(this.position.lat, this.position.lng, b?.radius || 1000), "leaf"],
     ["Le GBIF", "https://www.gbif.org/fr/what-is-gbif", "globe"],
   ])}
         <p class="territoryMuted territorySmall territorySources">BAM est un outil libre des parcs nationaux des Écrins et des Cévennes ; Cartes IGN s'appuie sur les mêmes données ouvertes.</p>
+      </div>`;
+  }
+
+  /** Encart d'appel à contribuer, qui ouvre la vue « Signaler une observation » */
+  #contributeCtaHtml(title, text) {
+    return `
+      <button type="button" class="territoryCard territoryAboutCard territoryContributeCta" data-action="contribute">
+        <span class="territoryAccent">${icon("users2", 22)}</span>
+        <span>
+          <span class="territoryInfoLabel">${esc(title)}</span>
+          <span class="territoryMuted territorySmall territoryAboutText">${esc(text)}</span>
+        </span>
+        <span class="territoryRowArrow" aria-hidden="true">${icon("chevronRight", 18)}</span>
+      </button>`;
+  }
+
+  /**
+   * Signaler une observation : plateformes participatives adaptées au groupe de l'espèce,
+   * avec l'espèce et le lieu pré-remplis quand la plateforme le permet (iNaturalist)
+   */
+  #contributeHtml(view) {
+    const s = view.item;
+    const place = this.commune?.name || "";
+    const options = contributeOptions({
+      group: s?.group,
+      scientificName: s?.scientificName,
+      lat: this.position.lat,
+      lng: this.position.lng,
+      place,
+    });
+    const where = place ? `à ${place}` : "ici";
+    const intro = s
+      ? `Vous avez vu cette espèce ${where} ? Votre observation compte : une photo, le lieu et la date suffisent.`
+      : `Vous avez vu une espèce ${where} ? Votre observation compte : une photo, le lieu et la date suffisent.`;
+    return `
+      ${this.#subHeader("Signaler une observation")}
+      <div class="territoryDetail">
+        ${s ? `
+        <div class="territoryContributeSpecies">
+          ${this.#speciesMedia(s, "territoryRowImg", 200, 24)}
+          <span class="territoryRowBody">
+            <span class="territoryCardTitle">${esc(this.#speciesName(s))}</span>
+            ${this.#speciesSci(s) ? `<span class="territoryMuted territorySmall territorySci">${esc(this.#speciesSci(s))}</span>` : ""}
+          </span>
+        </div>` : ""}
+        <p class="territoryMuted territoryParagraph">${esc(intro)} Une fois vérifiée, elle enrichit les inventaires de la biodiversité et peut apparaître à son tour dans Cartes IGN.</p>
+        <div class="territoryRows territoryContributeOptions">${options.map((o) => `
+          <a class="territoryCard territoryRow territoryContributeOption" href="${esc(safeUrl(o.url))}" target="_blank" rel="noopener">
+            <span class="territoryRowBody">
+              <span class="territoryCardTitle">${esc(o.name)}</span>
+              ${o.prefilled ? `<span class="territoryBadgeRow"><span class="territoryBadge territoryBadgeAccent">${esc(o.prefilled)}</span></span>` : ""}
+              <span class="territoryMuted territorySmall territoryAboutText">${esc(o.desc)}</span>
+            </span>
+            <span class="territoryRowArrow" aria-hidden="true">${icon("external", 18)}</span>
+          </a>`).join("")}
+        </div>
+        <h3 class="territoryDetailH3">Les bons réflexes</h3>
+        <ul class="territoryRefs">
+          <li>Prenez une photo, même de loin : elle permet de vérifier l'identification.</li>
+          <li>Observez sans déranger : ne cueillez pas, ne capturez pas, restez à distance des nids et des terriers.</li>
+          <li>Un doute sur l'espèce ? Dites-le : la communauté et les experts vous aideront.</li>
+        </ul>
+        <p class="territoryMuted territorySmall territorySources">Les données de ces plateformes de sciences participatives alimentent, en tout ou partie, l'Inventaire national du patrimoine naturel (INPN) et le GBIF.</p>
       </div>`;
   }
 
@@ -2106,6 +2172,9 @@ class Territory {
       break;
     case "bio-about":
       this.#push({ name: "bioAbout" });
+      break;
+    case "contribute":
+      this.#push({ name: "contribute", item: view.name === "speciesDetail" ? view.item : null });
       break;
     case "species-map":
       this.#showSpeciesMap(view.item);
