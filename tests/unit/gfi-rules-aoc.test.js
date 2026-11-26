@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/js/services/commune-wiki-service", () => ({
-  getCommuneWikiData: vi.fn(),
+// config-utils charge les configs en ligne et touche au DOM à l'import :
+// on le remplace par les fichiers locaux.
+vi.mock("../../src/js/utils/config-utils", async () => ({
+  config: {
+    gfiRulesProps: (await import("../../config/gfi-rules.json")).default,
+    inseeCommWiki: {},
+  },
 }));
 
 import gfiRules from "../../src/js/map-interactivity/gfi-rules";

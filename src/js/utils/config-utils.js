@@ -59,17 +59,22 @@ const config = {
   hasLoaded: false,
 };
 
+// Fork d'expérimentation : les fichiers de config sont publiés sur le Pages
+// du fork (workflow pages-preview) et non sur celui de l'IGNF, sinon les
+// modifications de config/ du fork sont écrasées dès que l'appli est en ligne.
+const CONFIG_BASE_URL = "https://nicolasberthelot.github.io/carte-ign-expe/config";
+
 const urls = {
   baseLayers: {
-    url: "https://ignf.github.io/cartes-ign-app/base-layer-config-new.json",
+    url: `${CONFIG_BASE_URL}/base-layer-config-new.json`,
     fallback: BaseLayers,
   },
   thematicLayers: {
-    url: "https://ignf.github.io/cartes-ign-app/thematics-layer-config-new.json",
+    url: `${CONFIG_BASE_URL}/thematics-layer-config-new.json`,
     fallback: ThematicLayers,
   },
   configLayers: {
-    url: "https://ignf.github.io/cartes-ign-app/layers-config.json",
+    url: `${CONFIG_BASE_URL}/layers-config.json`,
     fallback: ConfigLayers,
   },
   tempLayers: {
@@ -77,43 +82,43 @@ const urls = {
     fallback: [], // default empty list if not available
   },
   queryConfig: {
-    url: "https://ignf.github.io/cartes-ign-app/immersive-position-config.json",
+    url: `${CONFIG_BASE_URL}/immersive-position-config.json`,
     fallback: QueryConfig,
   },
   code_cultuCaption: {
-    url: "https://ignf.github.io/cartes-ign-app/code_cultu-caption.json",
+    url: `${CONFIG_BASE_URL}/code_cultu-caption.json`,
     fallback: Code_cultuCaption,
   },
   code_tfvCaption: {
-    url: "https://ignf.github.io/cartes-ign-app/code_tfv-caption.json",
+    url: `${CONFIG_BASE_URL}/code_tfv-caption.json`,
     fallback: Code_tfvCaption,
   },
   poiConfig: {
-    url: "https://ignf.github.io/cartes-ign-app/poi-osm-layer-config.json",
+    url: `${CONFIG_BASE_URL}/poi-osm-layer-config.json`,
     fallback: PoiConfig,
   },
   comparePoiData: {
-    url: "https://ignf.github.io/cartes-ign-app/poi_rlt.json",
+    url: `${CONFIG_BASE_URL}/poi_rlt.json`,
     fallback: ComparePoiData,
   },
   inseeCommWiki: {
-    url: "https://ignf.github.io/cartes-ign-app/com_wiki.json",
+    url: `${CONFIG_BASE_URL}/com_wiki.json`,
     fallbackLoader: getCommuneWikiData,
   },
   gfiRulesProps: {
-    url: "https://ignf.github.io/cartes-ign-app/gfi-rules.json",
+    url: `${CONFIG_BASE_URL}/gfi-rules.json`,
     fallback: GfiRulesProps,
   },
   layerPopups: {
-    url: "https://ignf.github.io/cartes-ign-app/layer-popups.json",
+    url: `${CONFIG_BASE_URL}/layer-popups.json`,
     fallback: LayerPopups,
   },
   isochroneLayers: {
-    url: "https://ignf.github.io/cartes-ign-app/isochrone-layers.json",
+    url: `${CONFIG_BASE_URL}/isochrone-layers.json`,
     fallback: IsochroneLayers,
   },
   layerTags: {
-    url: "https://ignf.github.io/cartes-ign-app/layer-tags.json",
+    url: `${CONFIG_BASE_URL}/layer-tags.json`,
     fallback: LayerTags,
   },
   newsfeed: {
