@@ -54,6 +54,12 @@ jobs:
             echo "Pas encore d'index photos (workflow « Mérimée photos »)"
           fi
 
+      - name: Add config files
+        # Lus en ligne par src/js/utils/config-utils.js (CONFIG_BASE_URL)
+        run: |
+          mkdir -p www/config
+          cp config/*.json www/config/
+
       - name: Add build info
         run: |
           echo "{\"commit\": \"${GITHUB_SHA}\", \"builtAt\": \"$(date -u +%FT%TZ)\"}" > www/build-info.json

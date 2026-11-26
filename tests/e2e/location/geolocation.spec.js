@@ -65,7 +65,8 @@ test("activates and disables geolocation", async ({ page }) => {
   await expect(geolocateButton).toHaveClass(/locationFixe/);
   await expect(positionMarker).toBeVisible();
 
-  await geolocateButton.click({ delay: 800 });
+  // Appui long : seuil de 700 ms dans map-buttons-listeners.js, marge large pour la CI
+  await geolocateButton.click({ delay: 1200 });
 
   await expect(geolocateButton).not.toHaveClass(/locationFixe|locationFollow|locationLoading/);
   await expect(positionMarker).toHaveCount(0);
