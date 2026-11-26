@@ -105,6 +105,25 @@ async function readParquet(resource, columns) {
   return rows.map(normalizeRow);
 }
 
+const rowsCache = {};
+
+/**
+ * Lignes d'une ressource (sans index géographique), chargées une seule fois par session
+ * @param {string} resource identifiant de ressource data.gouv.fr
+ * @param {Array<string>|undefined} columns colonnes à lire (toutes si absent)
+ * @returns {Promise<Array<Object>>}
+ */
+export function getParquetRows(resource, columns) {
+  const key = `${resource}|${(columns || []).join(",")}`;
+  if (!rowsCache[key]) {
+    rowsCache[key] = readParquet(resource, columns).catch((err) => {
+      delete rowsCache[key];
+      throw err;
+    });
+  }
+  return rowsCache[key];
+}
+
 /**
  * Table indexée d'une ressource, chargée une seule fois par session
  * @param {string} resource identifiant de ressource data.gouv.fr
