@@ -141,10 +141,31 @@ function sentierSource(source) {
   }
 }
 
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Transforme une liste d'appellations séparées par des virgules
+ * (champ « denom » de la couche INAO) en liste HTML dédoublonnée.
+ */
+function appellations(value) {
+  const items = [...new Set(String(value).split(",").map(s => s.trim()).filter(Boolean))];
+  if (!items.length) {
+    return "";
+  }
+  return `<ul class="aocList">${items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
 const helpers = {
   duration,
   tokilometers,
   sentierSource,
+  appellations,
 };
 
 const gfiRules = {

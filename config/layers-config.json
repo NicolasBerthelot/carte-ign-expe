@@ -2,7 +2,6 @@
   "layers": {
     "Aire-Parcellaire$WMTS": {
       "title": "Délimitation parcellaire AOC viticole",
-      "interactive": false,
       "description": "Représentation des délimitations parcellaires des appellations d’origine contrôlée (AOC) viticoles sur la France métropolitaine.<br>Attention : ces données sont proposées à titre informatif.<br> Les délimitations parcellaires officielles sont consultables sur les plans déposés en mairie ou auprès des services de l’INAO.",
       "source": "Institut national de l’origine et de la qualité (INAO)",
       "maj": "Novembre 2020",
