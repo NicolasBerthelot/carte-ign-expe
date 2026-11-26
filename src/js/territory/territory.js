@@ -33,8 +33,23 @@ import TerritoryData, {
   tileImageUrl,
   toList,
 } from "./territory-data";
+import Biodiversity, {
+  CONTRIBUTE_LINKS,
+  SPECIES_GROUPS,
+  SPECIES_GROUP_ORDER,
+  bamUrl,
+  commonsThumb,
+  interleaveGroups,
+  seasonLabel,
+  seasonMonths,
+  speciesTilesUrl,
+} from "./biodiversity-data";
 
 const HIGHLIGHT_SOURCE = "territory-highlight";
+const SPECIES_MAP_SOURCE = "territory-species-density";
+const MONTH_INITIALS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+const BIO_YEARS_TEXT = "dix dernières années";
+const MONTH_NAMES = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 /** Couches de l'appli correspondant aux sorties : « Idées rando » (Geotrek) et « Animations locales » (DATAtourisme) */
 const OUTING_LAYERS = {
   trek: "HIKING.GEOTREK$TMS",
@@ -118,6 +133,9 @@ class Territory {
     this.placesErrors = [];
     this.outings = undefined;
     this.outingsErrors = [];
+    this.bio = undefined;
+    this.bioHome = [];
+    this.bioSeason = undefined;
     this.immersive = null;
     this.views = [{ name: "home" }];
   }
@@ -168,6 +186,12 @@ class Territory {
     if (source) {
       source.setData({ type: "FeatureCollection", features: [] });
     }
+    if (this.map.getLayer(SPECIES_MAP_SOURCE)) {
+      this.map.removeLayer(SPECIES_MAP_SOURCE);
+    }
+    if (this.map.getSource(SPECIES_MAP_SOURCE)) {
+      this.map.removeSource(SPECIES_MAP_SOURCE);
+    }
   }
 
   /* ------------------------------------------------------------------------ */
@@ -209,6 +233,24 @@ class Territory {
       .then(({ outings, errors }) => { this.outings = outings; this.outingsErrors = errors; })
       .catch((err) => { console.warn("[territoire] sorties :", err); this.outings = []; this.outingsErrors = ["Sorties"]; })
       .finally(() => isCurrent() && this.#render());
+
+    // Biodiversité : observations partagées sur le GBIF (même principe que BAM)
+    Biodiversity.getBiodiversity(lat, lng, signal)
+      .then(async (bio) => {
+        const home = interleaveGroups(bio.groups, 10);
+        await Biodiversity.enrichSpecies(home, signal);
+        this.bioHome = home;
+        this.bio = bio;
+      })
+      .catch((err) => { if (err.name !== "AbortError") { console.warn("[territoire] biodiversité :", err); } this.bio = null; })
+      .finally(() => isCurrent() && this.#renderIfBio());
+  }
+
+  /** Rend à nouveau si la vue courante affiche la biodiversité */
+  #renderIfBio() {
+    if (["home", "species", "bioAbout"].includes(this.#currentView().name)) {
+      this.#render();
+    }
   }
 
   #renderIfHome() {
@@ -248,6 +290,15 @@ class Territory {
     case "outing":
       html = view.item.kind === "event" ? this.#eventDetailHtml(view.item) : this.#trekDetailHtml(view.item);
       break;
+    case "species":
+      html = this.#speciesListHtml(view);
+      break;
+    case "speciesDetail":
+      html = this.#speciesDetailHtml(view);
+      break;
+    case "bioAbout":
+      html = this.#bioAboutHtml();
+      break;
     default:
       html = this.#homeHtml();
     }
@@ -255,6 +306,12 @@ class Territory {
     this.target.classList.toggle("territorySubview", view.name !== "home");
     if (view.name === "place" || view.name === "outing") {
       this.#mountDetailWidgets(view.item);
+    }
+    if (view.name === "species") {
+      if (view.season) {
+        this.#loadSeason(view);
+      }
+      this.#enrichVisible(view);
     }
   }
 
@@ -395,7 +452,7 @@ class Territory {
         </button>`;
     }
 
-    const errors = [...this.placesErrors, ...this.outingsErrors];
+    const errors = [...this.placesErrors, ...this.outingsErrors, ...(this.bio === null ? ["Biodiversité"] : [])];
     return `
       <div class="territoryHome">
         <div class="territoryHeader">
@@ -411,13 +468,16 @@ class Territory {
         ${this.#sectionHeader("landmark", "Lieux remarquables", { subtitle: "Monuments, musées, UNESCO… découvrir tous les lieux", action: "list-places", label: "lieux remarquables" })}
         ${placesHtml}
 
+        ${this.#sectionHeader("leaf", "Biodiversité observée", { subtitle: "Espèces signalées ici par des naturalistes et des citoyens", action: this.bio?.total ? "list-species" : "", label: "espèces observées" })}
+        ${this.#bioHomeHtml()}
+
         ${this.#sectionHeader("footprints", "Sorties à proximité", { action: "list-outings", label: "sorties à proximité" })}
         ${outingsHtml}
 
         ${newsHtml}
 
         ${errors.length ? `<p class="territoryMuted territorySmall territoryWarning">${icon("info", 14)} Données indisponibles pour le moment : ${esc(errors.join(", "))}.</p>` : ""}
-        <p class="territoryMuted territorySmall territorySources">Sources : IGN, INSEE, ministère de la Culture, UNESCO, DATAtourisme, Geotrek, Open-Meteo (Météo-France).</p>
+        <p class="territoryMuted territorySmall territorySources">Sources : IGN, INSEE, ministère de la Culture, UNESCO, DATAtourisme, Geotrek, Open-Meteo (Météo-France), GBIF (observations partagées par les contributeurs), Wikidata et Wikimedia Commons.</p>
       </div>`;
   }
 
@@ -816,6 +876,382 @@ class Territory {
   }
 
   /* ------------------------------------------------------------------------ */
+  /* Biodiversité                                                              */
+  /* ------------------------------------------------------------------------ */
+
+  #speciesName(s) {
+    return s.frName || s.scientificName || "Espèce";
+  }
+
+  /** Nom scientifique, s'il n'est pas déjà le nom affiché */
+  #speciesSci(s) {
+    return s.frName && s.scientificName ? s.scientificName : "";
+  }
+
+  /** Photo : Wikimedia Commons (via Wikidata), sinon photo partagée avec une observation */
+  #speciesImageUrl(s, width) {
+    if (s.image) {
+      return commonsThumb(s.image, width);
+    }
+    if (s.photo) {
+      return width > 240 ? s.photo.url : s.photo.thumb;
+    }
+    return "";
+  }
+
+  /** Photo de l'espèce (Wikimedia Commons), sur un pictogramme du groupe qui reste visible si elle manque */
+  #speciesMedia(s, cls, width = 400, iconSize = 32) {
+    return `<span class="territorySpeciesMedia ${cls}">
+      ${icon(SPECIES_GROUPS[s.group]?.icon || "leaf", iconSize)}
+      ${this.#speciesImageUrl(s, width) ? img(this.#speciesImageUrl(s, width), "territorySpeciesImg") : ""}
+    </span>`;
+  }
+
+  #iucnPill(s, onlyThreatened = false) {
+    if (!s.iucn || (onlyThreatened && !["NT", "VU", "EN", "CR", "EW"].includes(s.iucn.code))) {
+      return "";
+    }
+    return `<span class="territoryIucn territoryIucn-${esc(s.iucn.code)}" title="Liste rouge mondiale de l'UICN : ${esc(s.iucn.label)}">${esc(s.iucn.code)}</span>`;
+  }
+
+  #radiusText() {
+    return `à moins de ${formatDistance(this.bio?.radius)}`;
+  }
+
+  /** Titre court d'un jeu de données (« iNaturalist Research-grade Observations » → « iNaturalist ») */
+  #datasetShort(title) {
+    const t = String(title || "").split(/\s[-–—:(]\s?/)[0].replace(/\s+Research-grade Observations$/i, "").trim();
+    return t.length > 60 ? `${t.slice(0, 58)}…` : t;
+  }
+
+  #datasetCountText() {
+    const n = this.bio.datasetCount;
+    return `${n >= 50 ? "plus de 50" : n} source${n > 1 ? "s" : ""}`;
+  }
+
+  /** Mention de la source, toujours visible sous les espèces : données collaboratives, GBIF */
+  #bioSourceNote() {
+    const b = this.bio;
+    const names = b.datasets.slice(0, 2).map((d) => this.#datasetShort(d.title));
+    return `
+      <button type="button" class="territoryBioNote" data-action="bio-about">
+        <span class="territoryAccent">${icon("users2", 18)}</span>
+        <span>
+          <strong>${formatNumber(b.total)} observations</strong> partagées ${esc(this.#radiusText())} depuis ${b.since}
+          par les contributeurs de ${esc(this.#datasetCountText())}${names.length ? ` (${esc(names.join(", "))}…)` : ""}, via le GBIF.
+          <span class="territoryLink">D'où viennent ces données ?</span>
+        </span>
+      </button>`;
+  }
+
+  #speciesCardHtml(s) {
+    return `
+      <button type="button" class="territoryCard territorySpeciesCard" data-action="open-species" data-id="${esc(s.key)}"
+        aria-label="${esc(this.#speciesName(s))}, ${esc(SPECIES_GROUPS[s.group].one)}. Ouvrir la fiche">
+        ${this.#speciesMedia(s, "territorySpeciesCardMedia")}
+        <span class="territoryPlaceBody">
+          <span class="territoryCardTitle">${esc(this.#speciesName(s))}</span>
+          ${this.#speciesSci(s) ? `<span class="territoryMuted territorySmall territorySci">${esc(this.#speciesSci(s))}</span>` : ""}
+          <span class="territoryBadgeRow"><span class="territoryBadge">${esc(SPECIES_GROUPS[s.group].one)}</span>${this.#iucnPill(s, true)}</span>
+          <span class="territoryMuted territorySmall territoryDistance">${formatNumber(s.count)} observation${s.count > 1 ? "s" : ""}</span>
+        </span>
+      </button>`;
+  }
+
+  #bioHomeHtml() {
+    if (this.bio === undefined) {
+      return this.#loadingCards(2, 160);
+    }
+    if (this.bio === null) {
+      return "<p class=\"territoryMuted territoryEmpty\">Biodiversité indisponible pour le moment.</p>";
+    }
+    if (!this.bio.total || !this.bioHome.length) {
+      return `
+        <p class="territoryMuted territoryEmpty">Aucune observation partagée ${esc(this.#radiusText())}. Les espèces sont pourtant bien là : vous pouvez être parmi les premiers à les signaler.</p>
+        <button type="button" class="territoryLink territoryBioEmptyLink" data-action="bio-about">Comment partager une observation ?</button>`;
+    }
+    return `
+      <div class="territoryCarousel">${this.bioHome.map((s) => this.#speciesCardHtml(s)).join("")}</div>
+      ${this.#bioSourceNote()}`;
+  }
+
+  #speciesRowHtml(s) {
+    return `
+      <button type="button" class="territoryCard territoryRow" data-action="open-species" data-id="${esc(s.key)}" aria-label="${esc(this.#speciesName(s))}. Ouvrir la fiche">
+        ${this.#speciesMedia(s, "territoryRowImg", 200, 24)}
+        <span class="territoryRowBody">
+          <span class="territoryCardTitle">${s.enriched ? esc(this.#speciesName(s)) : "<span class=\"territoryMuted\">Chargement…</span>"}</span>
+          ${this.#speciesSci(s) ? `<span class="territoryMuted territorySmall territorySci">${esc(this.#speciesSci(s))}</span>` : ""}
+          <span class="territoryMuted territorySmall">${formatNumber(s.count)} observation${s.count > 1 ? "s" : ""} ${this.#iucnPill(s, true)}</span>
+        </span>
+        <span class="territoryRowArrow" aria-hidden="true">${icon("chevronRight", 18)}</span>
+      </button>`;
+  }
+
+  /** Groupes affichés dans la liste : toute l'année, ou « en ce moment » (saison) */
+  #listGroups(view) {
+    if (!view.season) {
+      return this.bio?.groups || {};
+    }
+    return this.bioSeason && this.bioSeason !== "loading" ? this.bioSeason : null;
+  }
+
+  #speciesListHtml(view) {
+    const months = seasonMonths();
+    const filter = view.filter || "all";
+    view.expanded = view.expanded || {};
+    const groups = this.#listGroups(view);
+    const PAGE = 15;
+    const shown = (g) => (filter === "all" ? 5 : PAGE) + (view.expanded[g] || 0);
+    const present = groups ? SPECIES_GROUP_ORDER.filter((g) => groups[g]?.species.length) : [];
+
+    const about = `
+      <button type="button" class="territoryCard territoryAboutCard" data-action="bio-about">
+        <span class="territoryAccent">${icon("users2", 22)}</span>
+        <span>
+          <span class="territoryInfoLabel">Des données collaboratives</span>
+          <span class="territoryMuted territorySmall territoryAboutText">Ces espèces ont été observées et partagées par des naturalistes, des associations, des scientifiques et des citoyens. Ce n'est pas un inventaire complet : une espèce peut être présente sans avoir été signalée.</span>
+          <span class="territoryLink territorySmall">En savoir plus et contribuer</span>
+        </span>
+      </button>`;
+
+    const season = this.#chips([["year", "Toute l'année"], ["season", "En ce moment"]], view.season ? "season" : "year")
+      .replace(/data-action="filter"/g, "data-action=\"season\"")
+      + (view.season ? `<p class="territoryMuted territorySmall territorySeasonCaption">Espèces observées ${/^[aeiou]/.test(seasonLabel(months)) ? "d'" : "de "}${seasonLabel(months)}, ces ${BIO_YEARS_TEXT}.</p>` : "");
+    const chips = present.length > 1 ? this.#chips([["all", "Tout"], ...present.map((g) => [g, SPECIES_GROUPS[g].label])], filter) : "";
+
+    let sections;
+    if (!groups) {
+      sections = `<p class="territoryMuted territoryEmpty">${this.bioSeason === null ? "Données de saison indisponibles pour le moment." : "Chargement…"}</p>`;
+    } else {
+      sections = (filter === "all" ? present : [filter].filter((g) => present.includes(g))).map((g) => {
+        const { species, count, truncated } = groups[g];
+        const visible = species.slice(0, shown(g));
+        return `
+          <section class="territoryListSection" aria-label="${esc(SPECIES_GROUPS[g].label)}">
+            <div class="territoryListSectionHeader">
+              <h3 class="territoryListTitle">${esc(SPECIES_GROUPS[g].label)}
+                <span class="territoryMuted territorySmall">${truncated ? "plus de " : ""}${species.length} espèce${species.length > 1 ? "s" : ""} · ${formatNumber(count)} obs.</span></h3>
+            </div>
+            <div class="territoryRows">${visible.map((s) => this.#speciesRowHtml(s)).join("")}</div>
+            ${species.length > shown(g) ? `<button type="button" class="territoryMoreBtn" data-action="more" data-value="${g}">${(() => { const n = Math.min(10, species.length - shown(g)); return n > 1 ? `Afficher ${n} espèces de plus` : "Afficher une espèce de plus"; })()}</button>` : ""}
+          </section>`;
+      }).join("") || `<p class="territoryMuted territoryEmpty">Aucune observation partagée ${view.season ? "à cette saison" : ""} ${esc(this.#radiusText())}.</p>`;
+    }
+
+    return `
+      ${this.#subHeader("Biodiversité observée")}
+      ${about}
+      ${season}
+      ${chips}
+      ${sections}
+      <p class="territoryMuted territorySmall territorySources">Observations : GBIF.org, partagées par les contributeurs de ${this.bio ? esc(this.#datasetCountText()) : "nombreuses sources"},
+        ${esc(this.#radiusText())}, depuis ${this.bio?.since || ""}. Noms et photos : Wikidata, Wikimedia Commons.
+        Même principe que <a class="territoryInlineLink" href="${esc(bamUrl(this.position.lat, this.position.lng, this.bio?.radius || 1000))}" target="_blank" rel="noopener">BAM — Biodiversité autour de moi</a> (parcs nationaux des Écrins et des Cévennes).</p>`;
+  }
+
+  /** Complète (noms, photos) les espèces visibles dans la liste, puis rend à nouveau */
+  #enrichVisible(view) {
+    const groups = this.#listGroups(view);
+    if (!groups) {
+      return;
+    }
+    const filter = view.filter || "all";
+    const pending = SPECIES_GROUP_ORDER
+      .filter((g) => filter === "all" || g === filter)
+      .flatMap((g) => (groups[g]?.species || []).slice(0, (filter === "all" ? 5 : 15) + (view.expanded?.[g] || 0)))
+      .filter((s) => !s.enriched && !s.enriching);
+    if (!pending.length) {
+      return;
+    }
+    pending.forEach((s) => { s.enriching = true; });
+    Biodiversity.enrichSpecies(pending, this.abortController.signal)
+      .catch((err) => {
+        if (err.name !== "AbortError") {
+          console.warn("[territoire] espèces :", err);
+          pending.forEach((s) => { s.enriched = true; });
+        }
+      })
+      .finally(() => {
+        pending.forEach((s) => { delete s.enriching; });
+        if (this.#currentView() === view) {
+          this.#render();
+        }
+      });
+  }
+
+  #loadSeason(view) {
+    if (this.bioSeason !== undefined || !this.bio?.geometry) {
+      return;
+    }
+    this.bioSeason = "loading";
+    const signal = this.abortController.signal;
+    Biodiversity.getSpeciesByGroup(this.bio.geometry, { months: seasonMonths(), signal })
+      .then((groups) => { this.bioSeason = groups; })
+      .catch((err) => { if (err.name !== "AbortError") { console.warn("[territoire] saison :", err); } this.bioSeason = null; })
+      .finally(() => {
+        if (!signal.aborted && this.#currentView() === view) {
+          this.#render();
+        }
+      });
+  }
+
+  #openSpecies(key) {
+    const view = this.#currentView();
+    const lists = [this.bioHome, ...Object.values(this.bio?.groups || {}).map((g) => g.species)];
+    if (this.bioSeason && this.bioSeason !== "loading") {
+      lists.push(...Object.values(this.bioSeason).map((g) => g.species));
+    }
+    const pool = view.name === "species" && view.season ? lists.reverse() : lists;
+    const item = pool.flat().find((s) => s.key === key);
+    if (!item) {
+      return;
+    }
+    const detailView = { name: "speciesDetail", item, detail: undefined };
+    this.#push(detailView);
+    const signal = this.abortController.signal;
+    const enriched = item.enriched ? Promise.resolve() : Biodiversity.enrichSpecies([item], signal);
+    enriched
+      .then(() => Biodiversity.getSpeciesDetail(item, this.bio.geometry, signal))
+      .then((detail) => { detailView.detail = detail; })
+      .catch((err) => { if (err.name !== "AbortError") { console.warn("[territoire] fiche espèce :", err); } detailView.detail = null; })
+      .finally(() => {
+        if (!signal.aborted && this.#currentView() === detailView) {
+          this.#render();
+        }
+      });
+  }
+
+  #monthsChartHtml(d) {
+    const max = Math.max(...d.months);
+    if (!max) {
+      return "<p class=\"territoryMuted territoryText\">Pas assez d'observations datées pour le moment.</p>";
+    }
+    const current = new Date().getMonth();
+    const peak = d.months.indexOf(max);
+    const bars = d.months.map((v, i) => `
+      <span class="territoryMonth${i === current ? " territoryMonthCurrent" : ""}">
+        <span class="territoryMonthBar"><span style="height:${Math.max(v ? 6 : 0, Math.round(v / max * 100))}%"></span></span>
+        <span class="territoryMonthLabel">${MONTH_INITIALS[i]}</span>
+      </span>`).join("");
+    const scope = d.seasonScope === "france" ? "en France (trop peu d'observations datées ici)" : esc(this.#radiusText());
+    return `
+      <div class="territoryMonths" role="img" aria-label="Observations par mois, ${scope}. Le plus souvent en ${MONTH_NAMES[peak]}.">${bars}</div>
+      <p class="territoryMuted territorySmall">Le plus souvent observée en <strong>${MONTH_NAMES[peak]}</strong> · observations par mois, ${scope}.</p>`;
+  }
+
+  #speciesDetailHtml(view) {
+    const s = view.item;
+    const d = view.detail;
+    const group = SPECIES_GROUPS[s.group];
+    const sci = this.#speciesSci(s);
+    const loading = d === undefined ? "<p class=\"territoryMuted territoryText\" aria-busy=\"true\">Chargement…</p>" : "";
+
+    const credit = d?.photoCredit
+      ? `<p class="territoryMuted territorySmall territoryGalleryCaption">${d.photoCredit.shared ? "Photo partagée avec une observation : " : "Photo : "}<a class="territoryInlineLink" href="${esc(safeUrl(d.photoCredit.url))}" target="_blank" rel="noopener">${esc(d.photoCredit.text)}</a></p>`
+      : "";
+
+    const stats = `
+      <div class="territoryStats">
+        <div><span class="territoryInfoLabel">${d ? formatNumber(d.localCount) : "…"}</span><span class="territoryMuted territorySmall">observations partagées ${esc(this.#radiusText())} depuis ${this.bio.since}</span></div>
+        ${s.iucn ? `<div><span class="territoryInfoLabel territoryIucnLabel">${this.#iucnPill(s)} ${esc(s.iucn.label)}</span><span class="territoryMuted territorySmall">Liste rouge mondiale de l'UICN</span></div>` : ""}
+      </div>`;
+
+    const contributors = d?.datasets?.length ? `
+      <h3 class="territoryDetailH3">Observée ici grâce à</h3>
+      <p class="territoryMuted territoryText">Chaque observation a été faite sur le terrain puis partagée par une personne : naturaliste, bénévole d'association, agent d'espace naturel ou simple promeneur.</p>
+      <div class="territoryInfoCard">${d.datasets.map((ds) => `
+        <div class="territoryInfoRow territoryDatasetRow">
+          <a class="territoryExtLink" href="https://www.gbif.org/dataset/${encodeURIComponent(ds.key)}" target="_blank" rel="noopener">${esc(this.#datasetShort(ds.title))}</a>
+          <span class="territoryMuted territorySmall">${formatNumber(ds.count)} obs.</span>
+        </div>`).join("")}
+      </div>` : "";
+
+    const summary = d?.summary ? `
+      ${this.#foldable("Description", d.summary.text)}
+      <p class="territoryMuted territorySmall">Extrait de <a class="territoryInlineLink" href="${esc(safeUrl(d.summary.url))}" target="_blank" rel="noopener">Wikipédia</a> (licence CC BY-SA).</p>` : "";
+
+    return `
+      ${this.#subHeader(group.label)}
+      <div class="territoryDetail">
+        ${this.#speciesMedia(s, "territorySpeciesHero", 800, 48)}
+        ${credit}
+        <h2 class="territoryDetailTitle">${esc(this.#speciesName(s))}</h2>
+        <p class="territoryMuted territorySmall territoryDetailKicker">${sci ? `<em class="territorySci">${esc(sci)}</em> · ` : ""}<strong>${esc(group.one)}</strong></p>
+        <div class="territoryActions">
+          <button type="button" class="territoryActionPill" data-action="species-map">${icon("map", 18)}Où l'observer ?</button>
+        </div>
+        ${stats}
+        ${loading}
+        ${d === null ? "<p class=\"territoryMuted territoryText\">Détails indisponibles pour le moment.</p>" : ""}
+        ${d ? `<h3 class="territoryDetailH3">Quand l'observer ?</h3>${this.#monthsChartHtml(d)}` : ""}
+        ${contributors}
+        ${summary}
+        <h3 class="territoryDetailH3">En savoir plus</h3>
+        ${this.#linksHtml([
+    s.taxref ? ["Fiche de l'espèce sur l'INPN", `https://inpn.mnhn.fr/espece/cd_nom/${encodeURIComponent(s.taxref)}`] : ["", null],
+    ["Toutes les observations sur le GBIF", `https://www.gbif.org/species/${encodeURIComponent(s.key)}`],
+  ])}
+        <h3 class="territoryDetailH3">Vous l'avez vue ?</h3>
+        <p class="territoryMuted territoryText">Partagez votre observation : elle enrichira la connaissance de la biodiversité d'ici et, une fois publiée sur le GBIF, pourra à son tour apparaître dans Cartes IGN.</p>
+        ${this.#linksHtml(CONTRIBUTE_LINKS.slice(0, 2).map(([label, url]) => [label, url, "users2"]))}
+        <p class="territoryMuted territorySmall territorySources">Observations : GBIF.org, données partagées par leurs contributeurs. Noms, statut et photo : Wikidata, Wikimedia Commons.</p>
+      </div>`;
+  }
+
+  #bioAboutHtml() {
+    const b = this.bio;
+    const datasets = b?.datasets?.length ? `
+      <h3 class="territoryDetailH3">Ici, les principales sources</h3>
+      <div class="territoryInfoCard">${b.datasets.map((ds) => `
+        <div class="territoryInfoRow territoryDatasetRow">
+          <a class="territoryExtLink" href="https://www.gbif.org/dataset/${encodeURIComponent(ds.key)}" target="_blank" rel="noopener">${esc(this.#datasetShort(ds.title))}</a>
+          <span class="territoryMuted territorySmall">${formatNumber(ds.count)} obs.</span>
+        </div>`).join("")}
+      </div>
+      ${b.datasetCount > b.datasets.length ? `<p class="territoryMuted territorySmall">… sur ${esc(this.#datasetCountText())} au total, ${esc(this.#radiusText())}.</p>` : ""}` : "";
+    return `
+      ${this.#subHeader("D'où viennent ces données ?")}
+      <div class="territoryDetail">
+        <div class="territoryInfoCard territoryProtection">${icon("users2", 22)}<span><strong>Des observations collaboratives.</strong> Chaque espèce affichée a été observée sur le terrain, puis signalée volontairement par des naturalistes, des associations, des scientifiques, des agents d'espaces naturels et des citoyens.</span></div>
+        <p class="territoryMuted territoryParagraph">Ces observations sont rassemblées par le <strong>GBIF</strong> (Système mondial d'information sur la biodiversité), une infrastructure internationale de données ouvertes soutenue par les pays participants, dont la France. Les plateformes de sciences participatives et les organismes naturalistes ou de recherche y publient leurs données.</p>
+        ${datasets}
+        <h3 class="territoryDetailH3">À garder en tête</h3>
+        <ul class="territoryRefs">
+          <li>Ce n'est pas un inventaire complet : une espèce peut vivre ici sans avoir jamais été signalée.</li>
+          <li>Les espèces faciles à voir ou très suivies, comme les oiseaux, sont plus souvent signalées que les autres.</li>
+          <li>La localisation des espèces sensibles peut être volontairement imprécise, pour les protéger.</li>
+          <li>Sont retenues les observations des ${new Date().getFullYear() - (b?.since || 0)} dernières années, ${esc(this.#radiusText())} du point.</li>
+        </ul>
+        <h3 class="territoryDetailH3">Vous aussi, contribuez</h3>
+        <p class="territoryMuted territoryParagraph">Une photo, un lieu, une date : chaque observation partagée enrichit la connaissance de la biodiversité de votre territoire et profite à tous.</p>
+        ${this.#linksHtml(CONTRIBUTE_LINKS.map(([label, url]) => [label, url, "users2"]))}
+        <h3 class="territoryDetailH3">Aller plus loin</h3>
+        ${this.#linksHtml([
+    ["Explorer avec BAM — Biodiversité autour de moi", bamUrl(this.position.lat, this.position.lng, b?.radius || 1000), "leaf"],
+    ["Le GBIF", "https://www.gbif.org/fr/what-is-gbif", "globe"],
+  ])}
+        <p class="territoryMuted territorySmall territorySources">BAM est un outil libre des parcs nationaux des Écrins et des Cévennes ; Cartes IGN s'appuie sur les mêmes données ouvertes.</p>
+      </div>`;
+  }
+
+  #showSpeciesMap(s) {
+    this.clearMap();
+    this.map.addSource(SPECIES_MAP_SOURCE, {
+      type: "raster",
+      tiles: [speciesTilesUrl(s.key)],
+      tileSize: 512,
+      attribution: "Observations : <a href=\"https://www.gbif.org\" target=\"_blank\">GBIF.org</a>",
+    });
+    this.map.addLayer({ id: SPECIES_MAP_SOURCE, type: "raster", source: SPECIES_MAP_SOURCE, paint: { "raster-opacity": 0.8 } });
+    this.marker = new maplibregl.Marker({ color: "#26A581" }).setLngLat([this.position.lng, this.position.lat]).addTo(this.map);
+    this.#reduceMenu();
+    const zoom = { 1000: 12.5, 3000: 11, 10000: 9.5 }[this.bio?.radius] || 11;
+    this.map.flyTo({ center: [this.position.lng, this.position.lat], zoom });
+    Toast.show({ text: `${this.#speciesName(s)} : zones où l'espèce a été observée (GBIF)`, duration: "long", position: "bottom" }).catch(() => {});
+  }
+
+  /* ------------------------------------------------------------------------ */
   /* Actions                                                                   */
   /* ------------------------------------------------------------------------ */
 
@@ -865,6 +1301,23 @@ class Territory {
       break;
     case "list-outings":
       this.#push({ name: "outings", filter: "all" });
+      break;
+    case "list-species":
+      this.#push({ name: "species", filter: "all", season: false });
+      break;
+    case "season":
+      view.season = el.dataset.value === "season";
+      view.expanded = {};
+      this.#render();
+      break;
+    case "open-species":
+      this.#openSpecies(el.dataset.id);
+      break;
+    case "bio-about":
+      this.#push({ name: "bioAbout" });
+      break;
+    case "species-map":
+      this.#showSpeciesMap(view.item);
       break;
     case "filter":
       view.filter = el.dataset.value;
