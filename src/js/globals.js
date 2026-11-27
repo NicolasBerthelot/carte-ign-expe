@@ -61,6 +61,8 @@ let isochrone = null;
 let position = null;
 // volet "Mon territoire"
 let territory = null;
+// territoire survolé (volet replié de l'espace de découverte)
+let territoryPeek = null;
 
 // Global Compare Plugin
 let compare = null;
@@ -181,6 +183,7 @@ const Globals = {
   isochrone,
   position,
   territory,
+  territoryPeek,
   search,
   compare,
   comparedLayers,
@@ -285,6 +288,7 @@ const setBackButtonState = (state, track = true) => {
   if (track) {
     trackBackButtonStateChange(state);
   }
+  window.dispatchEvent(new CustomEvent("backbuttonstatechange", { detail: state }));
 };
 
 Globals.setBackButtonState = setBackButtonState;

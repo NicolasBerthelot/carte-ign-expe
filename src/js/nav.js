@@ -67,6 +67,8 @@ class MenuNavigation {
     });
     // "Mon territoire"
     document.getElementById("territory").addEventListener("click", async () => {
+      // réaffiche le territoire survolé s'il avait été masqué
+      Globals.territoryPeek?.enable();
       try {
         const position = await Location.getLocation();
         Globals.territory.open({

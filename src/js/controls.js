@@ -11,6 +11,7 @@ import Directions from "./directions/directions";
 import Isochrone from "./isochrone/isochrone";
 import Position from "./position/position";
 import Territory from "./territory/territory";
+import TerritoryPeek from "./territory/territory-peek";
 import Search from "./search";
 import Compare from "./compare";
 import POI from "./poi";
@@ -77,6 +78,8 @@ const addControls = () => {
 
     // volet "Mon territoire"
     Globals.territory = new Territory(map);
+    // territoire survolé : volet replié qui ouvre « Mon territoire »
+    Globals.territoryPeek = new TerritoryPeek(map);
 
     // contrôle Recherche
     Globals.search = new Search(map, {

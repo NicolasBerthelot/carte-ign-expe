@@ -1,0 +1,275 @@
+/***********************************
+ * Territoire survolé : volet replié de l'espace de découverte
+ * D'après la maquette Lovable « Cartes IGN — Prototype iPhone » (Explorer, V1/V2).
+ ***********************************/
+
+#territoryPeek {
+  --peek-height: 76px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* posé sur la barre de navigation (dont il passe légèrement dessous) */
+  bottom: calc(72px + max(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)), 20px));
+  height: calc(var(--peek-height) + 8px);
+  box-sizing: border-box;
+  padding-bottom: 8px;
+  background-color: var(--false-white);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -4px 16px #0916251f;
+  z-index: 3001;
+  color: var(--black);
+  font-family: "Open Sans";
+  animation: territoryPeekIn 0.25s ease-out;
+}
+
+/* plein écran : rien par-dessus la carte */
+.app:has(.maplibregl-ctrl-shrink) #territoryPeek {
+  display: none;
+}
+
+#territoryPeekOpen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: var(--peek-height);
+  padding: 0 64px 0 20px;
+  margin: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  /* le glissement vers le haut est géré par le volet, pas par le navigateur */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#territoryPeekOpen:disabled {
+  cursor: default;
+}
+
+#territoryPeekOpen:focus-visible {
+  outline: 2px solid var(--dark-green);
+  outline-offset: -4px;
+  border-radius: 24px;
+}
+
+.territoryPeekHandle {
+  align-self: center;
+  width: 40px;
+  height: 5px;
+  margin: 8px 0 10px;
+  border-radius: 3px;
+  background-color: var(--grey-2);
+  flex-shrink: 0;
+}
+
+#territoryPeekOpen:disabled .territoryPeekHandle {
+  visibility: hidden;
+}
+
+.territoryPeekBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  transition: opacity 0.15s;
+}
+
+.territoryPeekBody.isFresh {
+  animation: territoryPeekFresh 0.18s ease-out;
+}
+
+.territoryPeekTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.territoryPeekTitle {
+  flex: 1;
+  min-width: 0;
+  font-family: "Fira Sans Bold";
+  font-size: 20px;
+  line-height: 26px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.territoryPeekWeather {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-family: "Open Sans Semibold";
+  font-size: 15px;
+}
+
+.territoryPeekSubtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--darkish-grey);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Messages (trop éloigné, zoomez…) : texte dégradé comme dans la maquette */
+.territoryPeekGuidance {
+  font-family: "Fira Sans Bold";
+  font-size: 18px;
+  line-height: 23px;
+  margin-top: 4px;
+  background-image: linear-gradient(110deg, #a72870, #155cbd, #7338ad, #a72870);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: territoryPeekGuidance 5s ease-in-out infinite alternate;
+}
+
+#territoryPeek.isMessage #territoryPeekOpen {
+  padding-top: 6px;
+}
+
+/* Chargement : le territoire précédent reste affiché, grisé, avec trois points animés */
+.territoryPeekDots {
+  display: none;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.territoryPeekDots > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--black);
+  animation: territoryPeekDot 1.2s ease-in-out infinite;
+}
+
+.territoryPeekDots > span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.territoryPeekDots > span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+#territoryPeek.isStale .territoryPeekTitle,
+#territoryPeek.isStale .territoryPeekSubtitle {
+  opacity: 0.45;
+}
+
+#territoryPeek.isStale .territoryPeekWeather {
+  display: none;
+}
+
+#territoryPeek.isStale .territoryPeekDots {
+  display: inline-flex;
+}
+
+/* Bouton de fermeture (rond noir, comme les boutons de la carte) */
+#territoryPeekClose {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--black);
+  cursor: pointer;
+}
+
+#territoryPeekClose::before,
+#territoryPeekClose::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 2.4px;
+  border-radius: 2px;
+  background-color: #fff;
+}
+
+#territoryPeekClose::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+#territoryPeekClose::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+#territoryPeekClose:focus-visible {
+  outline: 2px solid var(--dark-green);
+  outline-offset: 2px;
+}
+
+/* Les boutons du bas de la carte (géolocalisation, plein écran, échelle) remontent au-dessus du volet */
+#bottomButtons {
+  transition: opacity 0.5s, bottom 0.2s;
+}
+
+body.territoryPeekVisible #bottomButtons:not(.routeDraw):not(.compare) {
+  bottom: calc(72px + 30px + 76px + max(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)), 20px));
+}
+
+@keyframes territoryPeekIn {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes territoryPeekFresh {
+  from { opacity: 0.3; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes territoryPeekGuidance {
+  from { background-position: 0% center; }
+  to { background-position: 100% center; }
+}
+
+@keyframes territoryPeekDot {
+  0%, 60%, 100% { opacity: 0.4; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #territoryPeek,
+  .territoryPeekBody.isFresh,
+  .territoryPeekGuidance,
+  .territoryPeekDots > span {
+    animation: none;
+  }
+}
+
+/* Paysage / ordinateur : carte flottante en bas à gauche, à côté de la barre de navigation */
+@media screen and (min-aspect-ratio: 1/1) and (min-width:400px) {
+  #territoryPeek {
+    position: fixed;
+    left: calc(87px + var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+    right: auto;
+    width: min(380px, calc(50vw - 100px));
+    bottom: calc(12px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+    height: var(--peek-height);
+    padding-bottom: 0;
+    border-radius: 20px;
+    box-shadow: 0 2px 14px #09162533;
+  }
+
+  /* seule l'échelle graphique (en bas à gauche) est sous le volet */
+  body.territoryPeekVisible #bottomButtons:not(.routeDraw):not(.compareWidth) {
+    bottom: calc(5px + max(var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)), 20px));
+  }
+
+  body.territoryPeekVisible #bottomButtons:not(.routeDraw):not(.compareWidth) > .maplibregl-ctrl-bottom-left {
+    bottom: calc(76px + 12px);
+  }
+}
