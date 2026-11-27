@@ -393,7 +393,12 @@ const createRasterSource = (id) => {
   var url = `${props.url}` +
     "REQUEST=GetMap&VERSION=1.3.0&" +
     "BBOX={bbox-epsg-3857}&" +
+    // CRS et STYLES sont les paramètres requis en WMS 1.3.0 : les serveurs
+    // MapServer (ex. EFFIS) refusent la requête sans eux. SRS est conservé
+    // pour les serveurs qui ne lisent que l'ancien paramètre.
+    "CRS=EPSG:3857&" +
     "SRS=EPSG:3857&" +
+    "STYLES=&" +
     `FORMAT=${props.format}&`+
     `LAYERS=${props.layer}&`+
     "TRANSPARENT=true&" +
