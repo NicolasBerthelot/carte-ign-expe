@@ -691,7 +691,7 @@ class MapInteractivity {
     const proj4 = await getProj4();
     const coords = proj4(proj4.defs("EPSG:4326"), proj4.defs("EPSG:3857"), [layer[1].clickCoords.lng, layer[1].clickCoords.lat]);
     const bbox = ExternalGfi.clickBbox(coords, layer[1].clickCoords.lat, layer[1].computeZoom);
-    return { bbox, proj4 };
+    return { bbox, proj4, coords };
   }
 
   /**
@@ -732,14 +732,14 @@ class MapInteractivity {
    * @returns {Promise<Object|undefined>} réponse au format attendu par #multipleGFI
    */
   async #externalGFI(layer) {
-    const { bbox, proj4 } = await this.#externalClickBbox(layer);
+    const { bbox, proj4, coords } = await this.#externalClickBbox(layer);
     const url = ExternalGfi.getFeatureInfoUrl(layer[1].url, layer[1].gfi, bbox);
     const response = await fetch(url, { signal: this.abortController.signal });
     if (!response.ok) {
       throw new Error("GetFeatureInfo : HTTP error");
     }
     const features = ExternalGfi.parseMapServerGml(await response.text());
-    const result = ExternalGfi.render(layer[1].gfi, features, layer[1].clickCoords, layer[1].title);
+    const result = ExternalGfi.render(layer[1].gfi, features, layer[1].clickCoords, layer[1].title, coords);
     if (!result) {
       return;
     }

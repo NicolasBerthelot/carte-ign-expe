@@ -12,7 +12,8 @@
  *   "gfi": {
  *     "layer": "all.hs.query",                     // couche WMS à interroger
  *     "infoFormat": "application/vnd.ogc.gml",     // format de réponse
- *     "days": 7,                                   // fenêtre TIME (jours, optionnel)
+ *     "days": 7,                                   // fenêtre TIME en jours (optionnel)
+ *     "season": true,                              // ou fenêtre TIME du 1er janvier à aujourd'hui
  *     "renderer": "effisHotspot"                   // mise en forme de la fiche
  *   }
  *
@@ -73,6 +74,16 @@ const timeRange = (days, now = new Date()) => {
 };
 
 /**
+ * Paramètre TIME couvrant l'année en cours (saison des feux), dates UTC
+ * @param {Date} now
+ * @returns {string} ex. "2026-01-01/2026-11-27"
+ */
+const seasonRange = (now = new Date()) => {
+  const end = now.toISOString().slice(0, 10);
+  return `${end.slice(0, 4)}-01-01/${end}`;
+};
+
+/**
  * URL GetMap utilisée pour vérifier qu'il y a bien quelque chose sous le clic
  * @param {string} serverUrl
  * @param {string} layerName couche affichée
@@ -109,7 +120,9 @@ const getFeatureInfoUrl = (serverUrl, gfiConfig, bbox, now = new Date()) => {
     `X=${center}&Y=${center}&` +
     `INFO_FORMAT=${gfiConfig.infoFormat || "application/vnd.ogc.gml"}&` +
     "FEATURE_COUNT=20";
-  if (gfiConfig.days) {
+  if (gfiConfig.season) {
+    params += `&TIME=${seasonRange(now)}`;
+  } else if (gfiConfig.days) {
     params += `&TIME=${timeRange(gfiConfig.days, now)}`;
   }
   return withParams(serverUrl, params);
@@ -159,6 +172,14 @@ const parseMapServerGml = (text) => {
       continue;
     }
     const properties = {};
+    // Emprise de l'entité (gml:boundedBy/gml:Box/gml:coordinates "minx,miny maxx,maxy")
+    const coords = el.getElementsByTagNameNS("http://www.opengis.net/gml", "coordinates")[0];
+    if (coords) {
+      const values = coords.textContent.trim().split(/[\s,]+/).map(Number);
+      if (values.length === 4 && values.every((v) => !Number.isNaN(v))) {
+        Object.defineProperty(properties, "_bbox", { value: values, enumerable: false });
+      }
+    }
     for (let j = 0; j < el.children.length; j++) {
       const child = el.children[j];
       // On ignore gml:boundedBy, et les géométries (éléments avec des enfants)
@@ -241,40 +262,59 @@ const SATELLITE_LABELS = {
 };
 
 /**
+ * Lit une date UTC ("2026-11-23 15:07:00", "2026-11-23" + "15:07:00" ou "1507")
+ * @param {string|null} date
+ * @param {string|null} time
+ * @returns {Date|null}
+ */
+const parseUtcDate = (date, time = null) => {
+  if (!date) {
+    return null;
+  }
+  let iso = date.trim().replace(" ", "T");
+  if (!iso.includes("T") && time) {
+    const t = time.trim();
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(t)) {
+      iso += `T${t.padStart(t.length + (t.indexOf(":") === 1 ? 1 : 0), "0")}`;
+    } else if (/^\d{3,4}$/.test(t)) {
+      const hhmm = t.padStart(4, "0");
+      iso += `T${hhmm.slice(0, 2)}:${hhmm.slice(2)}`;
+    }
+  }
+  if (!iso.includes("T")) {
+    iso += "T00:00";
+  }
+  // Les dates EFFIS / FIRMS sont en UTC
+  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(iso)) {
+    iso += "Z";
+  }
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatParisDate = (d, withTime = true) => {
+  const opts = { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric" };
+  if (withTime) {
+    opts.hour = "2-digit";
+    opts.minute = "2-digit";
+  }
+  return d.toLocaleString("fr-FR", opts);
+};
+
+/**
  * Date et heure de détection, en heure de Paris quand c'est possible
  * @param {Object} props
  * @returns {string|null}
  */
 const formatDetectionDate = (props) => {
+  const full = pick(props, ["acq_at"]);
   const date = pick(props, ["acq_date", "firedate", "date"]);
-  if (!date) {
-    return null;
-  }
-  let iso = date.trim().replace(" ", "T");
   const time = pick(props, ["acq_time", "firetime", "time"]);
-  if (!iso.includes("T") && time && /^\d{3,4}$/.test(time)) {
-    const hhmm = time.padStart(4, "0");
-    iso += `T${hhmm.slice(0, 2)}:${hhmm.slice(2)}`;
+  const parsed = full ? parseUtcDate(full) : parseUtcDate(date, time);
+  if (parsed) {
+    return formatParisDate(parsed, Boolean(full || time || /[ T]\d/.test(date || "")));
   }
-  if (!iso.includes("T")) {
-    return escapeHtml(date);
-  }
-  // Les heures d'acquisition sont en UTC
-  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(iso)) {
-    iso += "Z";
-  }
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) {
-    return escapeHtml(date);
-  }
-  return parsed.toLocaleString("fr-FR", {
-    timeZone: "Europe/Paris",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return date ? escapeHtml(date) : null;
 };
 
 /**
@@ -341,7 +381,7 @@ const renderEffisHotspot = (features, lngLat) => {
     html += `Secteur : ${place}<br/>`;
   }
   if (features.length > 1) {
-    html += `${features.length} détections à cet endroit sur les 7 derniers jours<br/>`;
+    html += `${features.length} détections à proximité sur les 7 derniers jours<br/>`;
   }
   html += "</div>";
 
@@ -359,6 +399,78 @@ const renderEffisHotspot = (features, lngLat) => {
     : [lngLat.lng, lngLat.lat];
 
   return { title, html, html2, lngLat: position, count: features.length };
+};
+
+/**
+ * Fiche « surface brûlée » EFFIS : on garde les surfaces dont l'emprise contient
+ * le clic (la plus récente d'abord), sinon la plus proche
+ * @param {Array<Object>} features
+ * @param {{lng: number, lat: number}} lngLat clic
+ * @param {Array<number>|null} mercator clic en EPSG:3857 (même SRS que la requête)
+ * @returns {Object|null}
+ */
+const renderEffisBurntArea = (features, lngLat, mercator = null) => {
+  if (!features || features.length === 0) {
+    return null;
+  }
+  const finalDate = (p) => parseUtcDate(pick(p, ["finaldate", "lastupdate", "initialdate"]));
+  let candidates = features;
+  if (mercator) {
+    const inside = features.filter((p) => p._bbox &&
+      mercator[0] >= p._bbox[0] && mercator[0] <= p._bbox[2] &&
+      mercator[1] >= p._bbox[1] && mercator[1] <= p._bbox[3]);
+    if (inside.length > 0) {
+      candidates = inside;
+    } else {
+      const dist = (p) => {
+        if (!p._bbox) return Infinity;
+        const cx = (p._bbox[0] + p._bbox[2]) / 2;
+        const cy = (p._bbox[1] + p._bbox[3]) / 2;
+        return (cx - mercator[0]) ** 2 + (cy - mercator[1]) ** 2;
+      };
+      candidates = [...features].sort((a, b) => dist(a) - dist(b)).slice(0, 1);
+    }
+  }
+  const props = [...candidates].sort((a, b) => (finalDate(b)?.getTime() || 0) - (finalDate(a)?.getTime() || 0))[0];
+
+  const start = parseUtcDate(pick(props, ["initialdate", "firedate"]));
+  const end = parseUtcDate(pick(props, ["finaldate", "lastupdate"]));
+  let period = null;
+  if (start && end) {
+    const s = formatParisDate(start, false);
+    const e = formatParisDate(end, false);
+    period = s === e ? `Le ${s}` : `Du ${s} au ${e}`;
+  } else if (start || end) {
+    period = `Le ${formatParisDate(start || end, false)}`;
+  }
+  const area = Number(pick(props, ["area_ha", "area"]));
+  const place = [pick(props, ["commune"]), pick(props, ["province", "name_2"]), pick(props, ["country", "name_0"])]
+    .filter(Boolean).map(escapeHtml).join(", ");
+
+  let title = "<p class=\"positionTitle\">Surface brûlée</p>";
+  if (period) {
+    title += `<p class="positionTitle2"><span class="positionTitleDateicon"></span>${period}</p>`;
+  }
+
+  let html = "<div class='positionHtmlBefore'>";
+  if (!Number.isNaN(area) && area > 0) {
+    html += `Surface estimée : <strong>${area.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} ha</strong><br/>`;
+  }
+  if (place) {
+    html += `Secteur : ${place}<br/>`;
+  }
+  if (candidates.length > 1) {
+    html += `${candidates.length} surfaces brûlées se superposent ici cette saison<br/>`;
+  }
+  html += "</div>";
+
+  const html2 = "<div class='positionHtmlAfter'>" +
+    "Contour estimé automatiquement à partir des détections satellite (VIIRS) regroupées dans l'espace et le temps : " +
+    "la surface et les dates sont approximatives.<br/>" +
+    "Source : EFFIS / GWIS – Copernicus Emergency Management Service" +
+    "</div>";
+
+  return { title, html, html2, lngLat: [lngLat.lng, lngLat.lat], count: candidates.length };
 };
 
 /**
@@ -389,6 +501,7 @@ const renderGeneric = (features, lngLat, layerTitle) => {
 
 const renderers = {
   effisHotspot: renderEffisHotspot,
+  effisBurntArea: renderEffisBurntArea,
 };
 
 /**
@@ -397,12 +510,13 @@ const renderers = {
  * @param {Array<Object>} features
  * @param {{lng: number, lat: number}} lngLat
  * @param {string} layerTitle
+ * @param {Array<number>|null} mercator clic en EPSG:3857
  * @returns {Object|null}
  */
-const render = (gfiConfig, features, lngLat, layerTitle) => {
+const render = (gfiConfig, features, lngLat, layerTitle, mercator = null) => {
   const fxt = renderers[gfiConfig.renderer];
   if (fxt) {
-    return fxt(features, lngLat);
+    return fxt(features, lngLat, mercator);
   }
   return renderGeneric(features, lngLat, layerTitle);
 };
@@ -411,11 +525,13 @@ export default {
   GFI_IMAGE_SIZE,
   clickBbox,
   timeRange,
+  seasonRange,
   getMapUrl,
   getFeatureInfoUrl,
   hasOpaquePixelNearCenter,
   parseMapServerGml,
   normalizeConfidence,
   renderEffisHotspot,
+  renderEffisBurntArea,
   render,
 };
