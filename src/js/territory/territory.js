@@ -163,6 +163,8 @@ class Territory {
     this.marks = undefined;
     this.floods = undefined;
     this.immersive = null;
+    // zonage survolé (forêt domaniale, parc…) quand le volet est ouvert depuis le territoire survolé
+    this.zone = null;
     this.views = [{ name: "home" }];
   }
 
@@ -173,19 +175,40 @@ class Territory {
    * @param {number} options.lng
    * @param {boolean} options.isUserPosition le point est la position de l'utilisateur
    * @param {ImmersivePosion} options.immersive calcul « position immersive » déjà lancé pour ce point
+   * @param {Object} options.commune commune déjà connue (évite de la redemander)
+   * @param {Object} options.zone zonage à afficher en titre à la place de la commune
+   * @param {Object} options.weather météo déjà connue
    */
-  open({ lat, lng, isUserPosition = false, immersive = null }) {
-    const samePoint = this.position && Math.abs(this.position.lat - lat) < 1e-5 && Math.abs(this.position.lng - lng) < 1e-5;
-    if (!samePoint) {
-      this.reset();
-      this.position = { lat, lng };
-      this.isUserPosition = isUserPosition;
-      this.#load(immersive);
-    } else {
+  open(options) {
+    if (!this.#preparePoint(options)) {
       this.views = [{ name: "home" }];
     }
     this.#render();
     Globals.menu.open("territory");
+  }
+
+  /**
+   * Lance le chargement pour un point sans ouvrir le volet (appui sur le territoire survolé,
+   * juste avant l'ouverture)
+   */
+  prepare(options) {
+    if (this.#preparePoint(options)) {
+      this.#render();
+    }
+  }
+
+  /** @returns {boolean} true si un nouveau point a été chargé */
+  #preparePoint({ lat, lng, isUserPosition = false, immersive = null, commune = undefined, zone = null, weather = undefined }) {
+    const samePoint = this.position && Math.abs(this.position.lat - lat) < 1e-5 && Math.abs(this.position.lng - lng) < 1e-5;
+    if (samePoint) {
+      return false;
+    }
+    this.reset();
+    this.position = { lat, lng };
+    this.isUserPosition = isUserPosition;
+    this.zone = zone;
+    this.#load(immersive, { commune, weather });
+    return true;
   }
 
   /** Revient à la vue précédente. @returns {boolean} false s'il n'y a pas de vue précédente */
@@ -234,7 +257,11 @@ class Territory {
   /* Chargement                                                                */
   /* ------------------------------------------------------------------------ */
 
-  #load(immersive) {
+  /**
+   * @param {ImmersivePosion} immersive
+   * @param {Object} known données déjà connues (commune, météo) : pas redemandées
+   */
+  #load(immersive, known = {}) {
     const { lat, lng } = this.position;
     const signal = this.abortController.signal;
     const isCurrent = () => !signal.aborted;
@@ -250,7 +277,7 @@ class Territory {
       this.immersive.computeAll();
     }
 
-    TerritoryData.getCommune(lat, lng)
+    (known.commune ? Promise.resolve(known.commune) : TerritoryData.getCommune(lat, lng))
       .then((commune) => { this.commune = commune; })
       .catch((err) => { console.warn("[territoire] commune :", err); this.commune = null; })
       .finally(() => {
@@ -270,7 +297,7 @@ class Territory {
     settle("marks", "géodésie", ["home", "marks"])(Discovery.getGeodesyMarks(lat, lng, signal));
     settle("floods", "repères de crues", ["home", "floods"])(Discovery.getFloodMarks(lat, lng, signal));
 
-    TerritoryData.getWeather(lat, lng, signal)
+    (known.weather ? Promise.resolve(known.weather) : TerritoryData.getWeather(lat, lng, signal))
       .then((weather) => { this.weather = weather; })
       .catch((err) => { if (err.name !== "AbortError") { console.warn("[territoire] météo :", err); } this.weather = null; })
       .finally(() => isCurrent() && this.#renderIfHome());
@@ -460,7 +487,10 @@ class Territory {
     // En-tête
     let title = "Mon territoire";
     let subtitle = "";
-    if (commune) {
+    if (this.zone) {
+      title = this.zone.name;
+      subtitle = [commune?.name, commune?.departement].filter(Boolean).join(" · ");
+    } else if (commune) {
       title = commune.name;
       subtitle = [commune.departement, commune.postcodes[0]].filter(Boolean).join(" · ");
     } else if (commune === undefined) {
