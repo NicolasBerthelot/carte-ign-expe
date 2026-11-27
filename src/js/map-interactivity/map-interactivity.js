@@ -10,6 +10,7 @@ import LayersConfig from "../layer-manager/layer-config";
 import MapInteractivityLayers from "./map-interactivity-styles";
 import featurePropertyFilter from "./feature-property-filter";
 import gfiRules from "./gfi-rules";
+import ExternalGfi from "./external-gfi";
 import colorFromSymbo from "./color-from-symbo";
 import throttle from "lodash/throttle";
 
@@ -530,6 +531,17 @@ class MapInteractivity {
     // check si le pixel de la couche est transparent, si oui, l'enlever de GFI Array (pas de GFI)
     const layersToRemove = [];
     let pixelValuePromiseArray = GFIArray.map(async (layer) => {
+      // Couches WMS hors Géoplateforme : on cherche un pixel non transparent
+      // autour du clic (les points chauds sont petits)
+      if (layer[1].gfi) {
+        return this.#externalPixelCheck(layer).then((hasData) => {
+          if (!hasData) {
+            layersToRemove.push(layer);
+          }
+        }).catch((err) => {
+          console.error(err);
+        });
+      }
       // Les entités dans ces couches sont transparentes, et donc pixels transparents à ne pas ignorer
       if (["CADASTRALPARCELS.PARCELLAIRE_EXPRESS", "LIMITES_ADMINISTRATIVES_EXPRESS.LATEST"].includes(layer[0].split("$")[0])) {
         return;
@@ -603,6 +615,9 @@ class MapInteractivity {
     // END: check des pixels transparents
 
     let promisesArray = GFIArray.map(async (layer) => {
+      if (layer[1].gfi) {
+        return this.#externalGFI(layer).catch(console.error);
+      }
       let gfiURL = "https://data.geopf.fr/wmts?" +
         "SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetFeatureInfo&" +
         `LAYER=${layer[0].split("$")[0]}` +
@@ -665,6 +680,77 @@ class MapInteractivity {
     }
 
     throw new Error(this.emptyError);
+  }
+
+  /**
+   * Emprise EPSG:3857 autour du clic pour une couche WMS externe
+   * @param {*} layer [id, props]
+   * @returns {Promise<{bbox: Array<number>, proj4: *}>}
+   */
+  async #externalClickBbox(layer) {
+    const proj4 = await getProj4();
+    const coords = proj4(proj4.defs("EPSG:4326"), proj4.defs("EPSG:3857"), [layer[1].clickCoords.lng, layer[1].clickCoords.lat]);
+    const bbox = ExternalGfi.clickBbox(coords, layer[1].clickCoords.lat, layer[1].computeZoom);
+    return { bbox, proj4 };
+  }
+
+  /**
+   * Vérifie qu'une couche WMS externe affiche quelque chose autour du clic
+   * @param {*} layer [id, props]
+   * @returns {Promise<boolean>}
+   */
+  async #externalPixelCheck(layer) {
+    const { bbox } = await this.#externalClickBbox(layer);
+    const url = ExternalGfi.getMapUrl(layer[1].url, layer[0].split("$")[0], bbox);
+    const result = await fetch(url);
+    if (!result.ok) {
+      return false;
+    }
+    const blob = await result.blob();
+    if (blob.type.split("/")[0] !== "image") {
+      return false;
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, img.width, img.height).data;
+        resolve(ExternalGfi.hasOpaquePixelNearCenter(data, img.width));
+      };
+      img.onerror = () => resolve(false);
+      img.src = URL.createObjectURL(blob);
+    });
+  }
+
+  /**
+   * GetFeatureInfo sur une couche WMS externe (cf. external-gfi.js)
+   * @param {*} layer [id, props]
+   * @returns {Promise<Object|undefined>} réponse au format attendu par #multipleGFI
+   */
+  async #externalGFI(layer) {
+    const { bbox, proj4 } = await this.#externalClickBbox(layer);
+    const url = ExternalGfi.getFeatureInfoUrl(layer[1].url, layer[1].gfi, bbox);
+    const response = await fetch(url, { signal: this.abortController.signal });
+    if (!response.ok) {
+      throw new Error("GetFeatureInfo : HTTP error");
+    }
+    const features = ExternalGfi.parseMapServerGml(await response.text());
+    const result = ExternalGfi.render(layer[1].gfi, features, layer[1].clickCoords, layer[1].title);
+    if (!result) {
+      return;
+    }
+    // #highlightGFI attend des coordonnées en EPSG:3857
+    const mercator = proj4(proj4.defs("EPSG:4326"), proj4.defs("EPSG:3857"), result.lngLat);
+    return {
+      title: result.title,
+      html: result.html,
+      html2: result.html2,
+      geometry: { type: "Point", coordinates: mercator },
+    };
   }
 
   /**

@@ -92,6 +92,8 @@ const getLayerProps = (id) => {
     quickLookUrl: quickLookUrl,
     legendUrl: legendUrl,
     tagConfigs: tagConfigs,
+    // interrogation au clic d'une couche WMS hors Géoplateforme (cf. external-gfi.js)
+    gfi: props.gfi || null,
   };
 };
 
