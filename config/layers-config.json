@@ -382,7 +382,13 @@
       "source": "EFFIS / GWIS – Copernicus Emergency Management Service (Commission européenne), d'après NASA FIRMS",
       "maj": "Plusieurs fois par jour",
       "new": true,
-      "interactive": false,
+      "interactive": true,
+      "gfi": {
+        "layer": "all.hs.query",
+        "infoFormat": "application/vnd.ogc.gml",
+        "days": 7,
+        "renderer": "effisHotspot"
+      },
       "serverUrl": "https://maps.effis.emergency.copernicus.eu/gwis?SERVICE=WMS&",
       "format": "image/png",
       "minNativeZoom": 0,

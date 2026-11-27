@@ -720,6 +720,8 @@ class LayerSwitcher extends EventTarget {
       minNativeZoom: props.minNativeZoom,
       interactive: props.interactive,
       format: props.format,
+      url: props.url,
+      gfi: props.gfi || null,
       layerType: props.layerType ? props.layerType : props.type,
       layerDef: props.layerDef ? props.layerDef : {},
       isTempLayer: layerOptions.isTempLayer || false,
