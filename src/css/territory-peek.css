@@ -160,6 +160,20 @@
   animation-delay: 0.3s;
 }
 
+.territoryPeekSkeleton {
+  display: block;
+  height: 20px;
+  margin-top: 3px;
+  border-radius: 6px;
+  background-color: var(--grey-2);
+  animation: territoryPeekPulse 1.2s ease-in-out infinite;
+}
+
+.territoryPeekSkeletonSmall {
+  height: 13px;
+  margin-top: 8px;
+}
+
 #territoryPeek.isStale .territoryPeekTitle,
 #territoryPeek.isStale .territoryPeekSubtitle {
   opacity: 0.45;
@@ -236,6 +250,11 @@ body.territoryPeekVisible #bottomButtons:not(.routeDraw):not(.compare) {
   to { background-position: 100% center; }
 }
 
+@keyframes territoryPeekPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 @keyframes territoryPeekDot {
   0%, 60%, 100% { opacity: 0.4; transform: translateY(0); }
   30% { opacity: 1; transform: translateY(-3px); }
@@ -245,6 +264,7 @@ body.territoryPeekVisible #bottomButtons:not(.routeDraw):not(.compare) {
   #territoryPeek,
   .territoryPeekBody.isFresh,
   .territoryPeekGuidance,
+  .territoryPeekSkeleton,
   .territoryPeekDots > span {
     animation: none;
   }

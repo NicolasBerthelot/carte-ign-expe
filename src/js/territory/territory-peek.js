@@ -19,8 +19,8 @@
  * - une seule dalle en cours de chargement à la fois ; si la carte est partie ailleurs entre-temps,
  *   seule la dernière dalle demandée est chargée ensuite ;
  * - pendant le chargement, le territoire précédent reste affiché (grisé) plutôt qu'un volet vide ;
- * - la météo n'est demandée qu'une fois la carte immobile depuis 600 ms (une fois par territoire,
- *   gardée 15 min) ;
+ * - la météo n'est demandée qu'une fois la carte immobile depuis 600 ms, et gardée 15 min pour une
+ *   maille de 0,1° (≈ 10 km) : passer d'une commune à sa voisine ne la redemande pas ;
  * - rien du contenu de l'espace de découverte n'est préchargé pendant le survol : son chargement
  *   démarre au premier contact avec le volet (pointerdown), avant même l'ouverture, et le volet
  *   s'ouvre avec le nom, la commune et la météo déjà connus.
@@ -103,10 +103,10 @@ class TerritoryPeek {
     this.body = this.el.querySelector(".territoryPeekBody");
 
     this.enabled = true;
-    this.mode = null; // "zone" | "far" | "zoom" | "none" | "error"
+    this.mode = null; // "zone" | "loading" | "far" | "zoom" | "none" | "error"
     this.result = null; // { commune, zone, communeId, lat, lng }
     this.renderedKey = "";
-    this.weather = new Map(); // id du territoire → { value, at }
+    this.weather = new Map(); // maille de 0,1° → { value, at }
     this.weatherInFlight = null;
     this.loadingKey = null; // dalle en cours (communes et parcs)
     this.queuedKey = null;
@@ -119,11 +119,8 @@ class TerritoryPeek {
     this.moveFrame = null;
 
     this.#listeners();
-    if (this.map.loaded()) {
-      this.#evaluate(false);
-    } else {
-      this.map.once("load", () => this.#evaluate(false));
-    }
+    // getCenter() est disponible dès la création de la carte (map.loaded() reste faux tant que des tuiles chargent)
+    this.#evaluate(false);
   }
 
   /** Réaffiche le volet (après fermeture par l'utilisateur) */
@@ -239,7 +236,12 @@ class TerritoryPeek {
       }
       return;
     }
-    this.#markStale();
+    if (this.mode === "zone") {
+      this.#markStale();
+    } else if (this.mode !== null) {
+      // on quitte un message (« zoomez… ») : squelette plutôt qu'un message devenu faux
+      this.#showLoading();
+    }
     if (state === "pending") {
       return;
     }
@@ -323,11 +325,27 @@ class TerritoryPeek {
     this.#setVisible(true);
   }
 
+  #showLoading() {
+    this.#clearStale();
+    this.mode = "loading";
+    this.result = null;
+    this.el.classList.remove("isMessage");
+    this.openBtn.disabled = true;
+    if (this.renderedKey !== "loading") {
+      this.renderedKey = "loading";
+      this.body.innerHTML = `<span class="territoryPeekSkeleton" style="width:65%"></span>
+        <span class="territoryPeekSkeleton territoryPeekSkeletonSmall" style="width:40%"></span>`;
+    }
+    this.openBtn.setAttribute("aria-label", "Recherche du territoire…");
+    this.el.setAttribute("aria-busy", "true");
+    this.#setVisible(true);
+  }
+
   #showZone(result) {
     this.#clearStale();
     const texts = peekTexts(result);
     const id = this.#territoryId(result);
-    const weather = this.#cachedWeather(id);
+    const weather = this.#cachedWeather(result);
     const renderKey = `zone:${id}:${weather ? weather.temperature : ""}`;
     const changed = this.mode !== "zone" || this.#territoryId(this.result) !== id;
     this.mode = "zone";
@@ -372,8 +390,12 @@ class TerritoryPeek {
   /* Météo                                                                     */
   /* ------------------------------------------------------------------------ */
 
-  #cachedWeather(id) {
-    const entry = this.weather.get(id);
+  #weatherKey({ lat, lng }) {
+    return `${Math.round(lat * 10)}/${Math.round(lng * 10)}`;
+  }
+
+  #cachedWeather(result) {
+    const entry = this.weather.get(this.#weatherKey(result));
     return entry && Date.now() - entry.at < WEATHER_TTL ? entry.value : null;
   }
 
@@ -384,14 +406,15 @@ class TerritoryPeek {
         return;
       }
       const result = this.result;
-      const id = this.#territoryId(result);
-      if (this.#cachedWeather(id)) {
+      if (this.#cachedWeather(result)) {
         return;
       }
+      const key = this.#weatherKey(result);
       this.weatherInFlight = TerritoryData.getWeather(result.lat, result.lng)
         .then((value) => {
-          this.weather.set(id, { value, at: Date.now() });
-          if (this.#territoryId(this.result) === id) {
+          this.weather.set(key, { value, at: Date.now() });
+          if (this.mode === "zone" && this.result && this.#weatherKey(this.result) === key) {
+            this.renderedKey = "";
             this.#showZone(this.result);
           }
         })
@@ -418,7 +441,7 @@ class TerritoryPeek {
       isUserPosition,
       commune: result.commune,
       zone: result.zone,
-      weather: this.#cachedWeather(this.#territoryId(result)),
+      weather: this.#cachedWeather(result),
     };
   }
 
