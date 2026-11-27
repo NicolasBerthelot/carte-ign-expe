@@ -65,7 +65,9 @@
     {
         "name": "Risques naturels",
         "layers": [
-          "GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN$WMTS"
+          "GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN$WMTS",
+          "all.hs.week$WMS",
+          "nrt.ba.season$WMS"
         ]
     }
 ]

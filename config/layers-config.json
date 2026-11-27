@@ -375,6 +375,35 @@
       "source": "Open Street Map",
       "format": "application/x-protobuf",
       "styles": ["https://ignf.github.io/cartes-ign-app/poi-osm-style.json", "data/poi-osm-style.json"]
+    },
+    "all.hs.week$WMS": {
+      "title": "Feux actifs (7 derniers jours)",
+      "description": "Points chauds détectés par satellite (VIIRS, MODIS, Sentinel-3) au cours des 7 derniers jours, en France et dans le monde. Mise à jour plusieurs fois par jour, quelques heures après le passage des satellites.<br>Attention : il s'agit d'anomalies thermiques et non d'incendies confirmés. Certains points correspondent à des brûlages agricoles, des sites industriels ou des torchères. Ces données ne remplacent pas les consignes des pompiers et des préfectures.",
+      "source": "EFFIS / GWIS – Copernicus Emergency Management Service (Commission européenne), d'après NASA FIRMS",
+      "maj": "Plusieurs fois par jour",
+      "new": true,
+      "interactive": false,
+      "serverUrl": "https://maps.effis.emergency.copernicus.eu/gwis?SERVICE=WMS&",
+      "format": "image/png",
+      "minNativeZoom": 0,
+      "maxNativeZoom": 18,
+      "quickLookUrl": "data/img/layers/FEUX.ACTIFS.jpg",
+      "legendUrl": "https://maps.effis.emergency.copernicus.eu/gwis?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&FORMAT=image/png&SLD_VERSION=1.1.0&LAYER=all.hs.week.points"
+    },
+    "nrt.ba.season$WMS": {
+      "title": "Surfaces brûlées (saison en cours)",
+      "description": "Contours des surfaces brûlées depuis le début de la saison des feux, cartographiés par EFFIS à partir d'images satellite. Seuls les feux d'une certaine taille sont cartographiés.",
+      "source": "EFFIS / GWIS – Copernicus Emergency Management Service (Commission européenne)",
+      "maj": "Quotidienne",
+      "new": true,
+      "interactive": false,
+      "serverUrl": "https://maps.effis.emergency.copernicus.eu/gwis?SERVICE=WMS&",
+      "format": "image/png",
+      "minNativeZoom": 0,
+      "maxNativeZoom": 18,
+      "defaultOpacity": 80,
+      "quickLookUrl": "data/img/layers/SURFACES.BRULEES.jpg",
+      "legendUrl": "https://maps.effis.emergency.copernicus.eu/gwis?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&FORMAT=image/png&SLD_VERSION=1.1.0&LAYER=nrt.ba.poly.season"
     }
   }
 }
